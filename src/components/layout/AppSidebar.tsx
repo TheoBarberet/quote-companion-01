@@ -1,0 +1,57 @@
+import { FileText, Home, Settings, Users, LogOut } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+
+const navigation = [
+  { name: 'Tableau de bord', href: '/dashboard', icon: Home },
+  { name: 'Devis', href: '/dashboard', icon: FileText },
+  { name: 'Clients', href: '/clients', icon: Users },
+  { name: 'Paramètres', href: '/settings', icon: Settings },
+];
+
+export function AppSidebar() {
+  const location = useLocation();
+
+  return (
+    <aside className="w-64 bg-sidebar min-h-screen flex flex-col">
+      <div className="p-6 border-b border-sidebar-border">
+        <h1 className="text-xl font-bold text-sidebar-foreground">DevisApp</h1>
+        <p className="text-xs text-sidebar-foreground/60 mt-1">Gestion des devis</p>
+      </div>
+      
+      <nav className="flex-1 p-4 space-y-1">
+        {navigation.map((item) => {
+          const isActive = location.pathname === item.href;
+          return (
+            <Link
+              key={item.name}
+              to={item.href}
+              className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
+            >
+              <item.icon className="w-5 h-5" />
+              <span>{item.name}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="p-4 border-t border-sidebar-border">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-full bg-sidebar-accent flex items-center justify-center">
+            <span className="text-sm font-medium text-sidebar-foreground">JD</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-sidebar-foreground truncate">Jean Dupont</p>
+            <p className="text-xs text-sidebar-foreground/60 truncate">Deviseur</p>
+          </div>
+        </div>
+        <Link 
+          to="/login" 
+          className="sidebar-nav-item text-sidebar-foreground/50 hover:text-sidebar-foreground"
+        >
+          <LogOut className="w-5 h-5" />
+          <span>Déconnexion</span>
+        </Link>
+      </div>
+    </aside>
+  );
+}
