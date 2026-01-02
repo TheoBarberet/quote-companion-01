@@ -14,6 +14,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { ExcelImportButton } from '@/components/devis/ExcelImportButton';
 import { ClientSelector } from '@/components/devis/ClientSelector';
+import { ProductSelector } from '@/components/devis/ProductSelector';
 
 export default function DevisForm() {
   const { id } = useParams();
@@ -138,40 +139,19 @@ export default function DevisForm() {
                 <Package className="w-4 h-4" />
                 Produit / Projet
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Référence produit</Label>
-                  <Input 
-                    value={formData.produit.reference}
-                    onChange={(e) => setFormData(prev => ({ ...prev, produit: { ...prev.produit, reference: e.target.value }}))}
-                    placeholder="PRD-XXX"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Désignation</Label>
-                  <Input 
-                    value={formData.produit.designation}
-                    onChange={(e) => setFormData(prev => ({ ...prev, produit: { ...prev.produit, designation: e.target.value }}))}
-                    placeholder="Nom du produit"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Quantité</Label>
-                  <Input 
-                    type="number"
-                    value={formData.produit.quantite}
-                    onChange={(e) => setFormData(prev => ({ ...prev, produit: { ...prev.produit, quantite: parseInt(e.target.value) || 0 }}))}
-                  />
-                </div>
-                <div className="col-span-3 space-y-2">
-                  <Label>Variantes / Options</Label>
-                  <Input 
-                    value={formData.produit.variantes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, produit: { ...prev.produit, variantes: e.target.value }}))}
-                    placeholder="Finition, couleur, etc."
-                  />
-                </div>
-              </div>
+              <ProductSelector
+                selectedProduct={formData.produit}
+                onProductChange={(data) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    produit: { ...prev.produit, ...data.produit },
+                    // Ne remplace les données que si on sélectionne un produit existant (arrays non vides)
+                    ...(data.composants.length > 0 && { composants: data.composants }),
+                    ...(data.matieresPremières.length > 0 && { matieresPremières: data.matieresPremières }),
+                    ...(data.etapesProduction.length > 0 && { etapesProduction: data.etapesProduction })
+                  }));
+                }}
+              />
             </div>
 
             {/* Composants */}
