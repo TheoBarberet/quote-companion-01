@@ -12,6 +12,8 @@ import {
   User, Package, Puzzle, Layers, Factory, Truck, TrendingUp
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ExcelImportButton } from '@/components/devis/ExcelImportButton';
+import { ClientSelector } from '@/components/devis/ClientSelector';
 
 export default function DevisForm() {
   const { id } = useParams();
@@ -87,6 +89,15 @@ export default function DevisForm() {
               {isEditing ? `Modifier ${existingDevis?.reference}` : 'Nouveau devis'}
             </h1>
           </div>
+          <ExcelImportButton 
+            onDataExtracted={(data) => {
+              setFormData(prev => ({
+                ...prev,
+                client: { ...prev.client, ...data.client },
+                produit: { ...prev.produit, ...data.produit }
+              }));
+            }} 
+          />
           <Button variant="outline" className="gap-2">
             <Sparkles className="w-4 h-4" />
             Suggestions IA
@@ -106,32 +117,18 @@ export default function DevisForm() {
                 <User className="w-4 h-4" />
                 Informations client
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Référence client</Label>
-                  <Input 
-                    value={formData.client.reference}
-                    onChange={(e) => setFormData(prev => ({ ...prev, client: { ...prev.client, reference: e.target.value }}))}
-                    placeholder="CLI-XXX"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Nom / Raison sociale</Label>
-                  <Input 
-                    value={formData.client.nom}
-                    onChange={(e) => setFormData(prev => ({ ...prev, client: { ...prev.client, nom: e.target.value }}))}
-                    placeholder="Entreprise SAS"
-                  />
-                </div>
-                <div className="col-span-2 space-y-2">
-                  <Label>Adresse</Label>
-                  <Textarea 
-                    value={formData.client.adresse}
-                    onChange={(e) => setFormData(prev => ({ ...prev, client: { ...prev.client, adresse: e.target.value }}))}
-                    placeholder="Adresse complète"
-                    rows={2}
-                  />
-                </div>
+              <ClientSelector
+                selectedClient={formData.client}
+                onClientChange={(client) => setFormData(prev => ({ ...prev, client: { ...prev.client, ...client } }))}
+              />
+              <div className="mt-4 space-y-2">
+                <Label>Adresse</Label>
+                <Textarea 
+                  value={formData.client.adresse}
+                  onChange={(e) => setFormData(prev => ({ ...prev, client: { ...prev.client, adresse: e.target.value }}))}
+                  placeholder="Adresse complète"
+                  rows={2}
+                />
               </div>
             </div>
 
