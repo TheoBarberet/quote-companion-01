@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FileText, Lock, Mail } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import majiLogo from '@/assets/maji-logo.png';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -22,7 +23,7 @@ export default function Login() {
       if (email && password) {
         toast({
           title: 'Connexion réussie',
-          description: 'Bienvenue sur DevisApp',
+          description: 'Bienvenue sur Maji Devis',
         });
         navigate('/dashboard');
       } else {
@@ -40,10 +41,8 @@ export default function Login() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-primary mb-4">
-            <FileText className="w-7 h-7 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">DevisApp</h1>
+          <img src={majiLogo} alt="Maji" className="h-12 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground">Maji Devis</h1>
           <p className="text-muted-foreground mt-1">Gestion des devis simplifiée</p>
         </div>
 
@@ -92,7 +91,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          © 2024 DevisApp - Application interne
+          © 2024 Maji Devis - Application interne
         </p>
       </div>
     </div>

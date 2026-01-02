@@ -1,5 +1,6 @@
 import { FileText, Home, Settings, Users, LogOut } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import majiLogo from '@/assets/maji-logo.png';
 
 const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: Home },
@@ -14,8 +15,8 @@ export function AppSidebar() {
   return (
     <aside className="w-64 bg-sidebar min-h-screen flex flex-col">
       <div className="p-6 border-b border-sidebar-border">
-        <h1 className="text-xl font-bold text-sidebar-foreground">DevisApp</h1>
-        <p className="text-xs text-sidebar-foreground/60 mt-1">Gestion des devis</p>
+        <img src={majiLogo} alt="Maji" className="h-8 mb-2" />
+        <p className="text-xs text-sidebar-foreground/60">Maji Devis</p>
       </div>
       
       <nav className="flex-1 p-4 space-y-1">
