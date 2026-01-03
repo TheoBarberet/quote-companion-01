@@ -86,14 +86,43 @@ interface ProductSelectorProps {
   }) => void;
 }
 
+// Stocke les données de base (pour 1 unité) pour le calcul proportionnel
+interface BaseProductData {
+  composants: Omit<Composant, 'id'>[];
+  matieresPremières: Omit<MatierePremiere, 'id'>[];
+  etapesProduction: Omit<EtapeProduction, 'id'>[];
+}
+
 export function ProductSelector({ selectedProduct, onProductChange }: ProductSelectorProps) {
   const [isNewProduct, setIsNewProduct] = useState(!selectedProduct.reference);
+  const [baseData, setBaseData] = useState<BaseProductData | null>(null);
+
+  // Fonction pour mettre à l'échelle les données selon la quantité
+  const scaleDataByQuantity = (base: BaseProductData, quantity: number) => {
+    const composantsWithIds = base.composants.map((c, i) => ({
+      ...c,
+      id: `comp-${Date.now()}-${i}`,
+      quantite: Math.round(c.quantite * quantity)
+    }));
+    const matieresWithIds = base.matieresPremières.map((m, i) => ({
+      ...m,
+      id: `mat-${Date.now()}-${i}`,
+      quantiteKg: Math.round(m.quantiteKg * quantity * 100) / 100
+    }));
+    const etapesWithIds = base.etapesProduction.map((e, i) => ({
+      ...e,
+      id: `etape-${Date.now()}-${i}`,
+      dureeHeures: Math.round(e.dureeHeures * quantity * 100) / 100
+    }));
+    return { composantsWithIds, matieresWithIds, etapesWithIds };
+  };
 
   const handleProductSelect = (reference: string) => {
     if (reference === 'new') {
       setIsNewProduct(true);
+      setBaseData(null);
       onProductChange({
-        produit: { reference: '', designation: '', quantite: selectedProduct.quantite || 0, variantes: '' },
+        produit: { reference: '', designation: '', quantite: 1, variantes: '' },
         composants: [],
         matieresPremières: [],
         etapesProduction: []
@@ -104,21 +133,52 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
     setIsNewProduct(false);
     const found = mockProducts.find(p => p.produit.reference === reference);
     if (found) {
-      // Génère des IDs uniques pour chaque élément
-      const composantsWithIds = found.composants.map((c, i) => ({ ...c, id: `comp-${Date.now()}-${i}` }));
-      const matieresWithIds = found.matieresPremières.map((m, i) => ({ ...m, id: `mat-${Date.now()}-${i}` }));
-      const etapesWithIds = found.etapesProduction.map((e, i) => ({ ...e, id: `etape-${Date.now()}-${i}` }));
+      // Stocke les données de base pour 1 unité
+      setBaseData({
+        composants: found.composants,
+        matieresPremières: found.matieresPremières,
+        etapesProduction: found.etapesProduction
+      });
+
+      // Quantité par défaut à 1
+      const quantity = 1;
+      const { composantsWithIds, matieresWithIds, etapesWithIds } = scaleDataByQuantity({
+        composants: found.composants,
+        matieresPremières: found.matieresPremières,
+        etapesProduction: found.etapesProduction
+      }, quantity);
 
       onProductChange({
         produit: {
           reference: found.produit.reference,
           designation: found.produit.designation,
-          quantite: selectedProduct.quantite || 0,
+          quantite: quantity,
           variantes: found.produit.variantes
         },
         composants: composantsWithIds,
         matieresPremières: matieresWithIds,
         etapesProduction: etapesWithIds
+      });
+    }
+  };
+
+  const handleQuantityChange = (newQuantity: number) => {
+    if (baseData && !isNewProduct) {
+      // Recalcule les quantités proportionnellement
+      const { composantsWithIds, matieresWithIds, etapesWithIds } = scaleDataByQuantity(baseData, newQuantity);
+      onProductChange({
+        produit: { ...selectedProduct, quantite: newQuantity },
+        composants: composantsWithIds,
+        matieresPremières: matieresWithIds,
+        etapesProduction: etapesWithIds
+      });
+    } else {
+      // Nouveau produit : pas de données à mettre à l'échelle
+      onProductChange({
+        produit: { ...selectedProduct, quantite: newQuantity },
+        composants: [],
+        matieresPremières: [],
+        etapesProduction: []
       });
     }
   };
@@ -149,13 +209,9 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
           <Label>Quantité</Label>
           <Input
             type="number"
+            min="1"
             value={selectedProduct.quantite}
-            onChange={(e) => onProductChange({
-              produit: { ...selectedProduct, quantite: parseInt(e.target.value) || 0 },
-              composants: [],
-              matieresPremières: [],
-              etapesProduction: []
-            })}
+            onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
             placeholder="Quantité à produire"
           />
         </div>
