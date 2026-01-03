@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -22,34 +22,32 @@ import {
 import { Label } from '@/components/ui/label';
 import { Plus, Search, Eye, Pencil, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-interface Client {
-  id: string;
-  reference: string;
-  nom: string;
-  adresse: string;
-  email?: string;
-  telephone?: string;
-}
-
-// Mock data - sera remplacé par les données de la base
-const mockClients: Client[] = [
-  { id: '1', reference: 'CLI-001', nom: 'Entreprise Martin', adresse: '12 rue de la Paix, 75001 Paris', email: 'contact@martin.fr', telephone: '01 23 45 67 89' },
-  { id: '2', reference: 'CLI-002', nom: 'Société Dupont', adresse: '45 avenue des Champs, 69001 Lyon', email: 'info@dupont.com', telephone: '04 56 78 90 12' },
-  { id: '3', reference: 'CLI-003', nom: 'Industries Bernard', adresse: '8 boulevard du Commerce, 33000 Bordeaux', email: 'contact@bernard-ind.fr', telephone: '05 67 89 01 23' },
-  { id: '4', reference: 'CLI-004', nom: 'Tech Solutions', adresse: '22 rue de l\'Innovation, 31000 Toulouse', email: 'hello@techsolutions.fr', telephone: '05 61 23 45 67' },
-  { id: '5', reference: 'CLI-005', nom: 'Groupe Lambert', adresse: '15 place du Marché, 44000 Nantes', email: 'contact@lambert-groupe.fr', telephone: '02 40 12 34 56' },
-];
+import { getClients, addClient, updateClient, subscribe, type Client } from '@/data/clientsStore';
 
 export default function Clients() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [clients] = useState<Client[]>(mockClients);
+  const [clients, setClients] = useState<Client[]>(getClients);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<Client | null>(null);
+  const [createForm, setCreateForm] = useState({
+    nom: '',
+    adresse: '',
+    email: '',
+    telephone: '',
+  });
+
+  // S'abonner aux changements du store
+  useEffect(() => {
+    const unsubscribe = subscribe(() => {
+      setClients(getClients());
+    });
+    return unsubscribe;
+  }, []);
 
   const filteredClients = clients.filter(client =>
     client.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -68,15 +66,48 @@ export default function Clients() {
   };
 
   const handleSaveEdit = () => {
-    toast({
-      title: "Client modifié",
-      description: "Les informations du client ont été mises à jour.",
-    });
+    if (editForm) {
+      updateClient(editForm.id, {
+        nom: editForm.nom,
+        adresse: editForm.adresse,
+        email: editForm.email,
+        telephone: editForm.telephone,
+      });
+      toast({
+        title: "Client modifié",
+        description: "Les informations du client ont été mises à jour.",
+      });
+    }
     setIsEditDialogOpen(false);
   };
 
+  const handleCreate = () => {
+    if (!createForm.nom.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Le nom du client est obligatoire.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    addClient({
+      nom: createForm.nom.trim(),
+      adresse: createForm.adresse.trim(),
+      email: createForm.email.trim() || undefined,
+      telephone: createForm.telephone.trim() || undefined,
+    });
+    
+    toast({
+      title: "Client créé",
+      description: "Le nouveau client a été ajouté avec succès.",
+    });
+    
+    setCreateForm({ nom: '', adresse: '', email: '', telephone: '' });
+    setIsCreateDialogOpen(false);
+  };
+
   const handleCreateDevis = (client: Client) => {
-    // Navigue vers le formulaire de devis avec les infos du client en state
     navigate('/devis/new', { state: { prefilledClient: client } });
   };
 
@@ -89,7 +120,10 @@ export default function Clients() {
             <h1 className="text-2xl font-semibold text-foreground">Clients</h1>
             <p className="text-muted-foreground">Gérez votre base de clients</p>
           </div>
-          <Button className="bg-primary hover:bg-primary/90">
+          <Button 
+            className="bg-primary hover:bg-primary/90"
+            onClick={() => setIsCreateDialogOpen(true)}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Nouveau client
           </Button>
@@ -280,6 +314,60 @@ export default function Clients() {
             </Button>
             <Button onClick={handleSaveEdit}>
               Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nouveau client</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nom / Raison sociale *</Label>
+              <Input
+                value={createForm.nom}
+                onChange={(e) => setCreateForm({ ...createForm, nom: e.target.value })}
+                placeholder="Entreprise SAS"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Adresse</Label>
+              <Input
+                value={createForm.adresse}
+                onChange={(e) => setCreateForm({ ...createForm, adresse: e.target.value })}
+                placeholder="123 rue de l'exemple, 75001 Paris"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                  placeholder="contact@exemple.fr"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Téléphone</Label>
+                <Input
+                  value={createForm.telephone}
+                  onChange={(e) => setCreateForm({ ...createForm, telephone: e.target.value })}
+                  placeholder="01 23 45 67 89"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button onClick={handleCreate}>
+              Créer le client
             </Button>
           </DialogFooter>
         </DialogContent>

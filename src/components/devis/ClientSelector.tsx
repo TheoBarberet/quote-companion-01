@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,24 +17,7 @@ import {
 } from '@/components/ui/popover';
 import { Check, ChevronsUpDown, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface Client {
-  id: string;
-  reference: string;
-  nom: string;
-  adresse: string;
-  email?: string;
-  telephone?: string;
-}
-
-// Clients mock pour la démo - à remplacer par les données de la base
-const mockClients: Client[] = [
-  { id: '1', reference: 'CLI-001', nom: 'Acme Industries', adresse: '123 Rue de l\'Industrie, 75001 Paris', email: 'contact@acme.fr', telephone: '01 23 45 67 89' },
-  { id: '2', reference: 'CLI-002', nom: 'TechCorp France', adresse: '456 Avenue de la Tech, 69001 Lyon', email: 'info@techcorp.fr', telephone: '04 56 78 90 12' },
-  { id: '3', reference: 'CLI-003', nom: 'BioLab Solutions', adresse: '789 Boulevard Science, 31000 Toulouse', email: 'hello@biolab.fr', telephone: '05 61 23 45 67' },
-  { id: '4', reference: 'CLI-004', nom: 'EnergyMax SARL', adresse: '101 Chemin Vert, 33000 Bordeaux', email: 'contact@energymax.fr', telephone: '05 56 78 90 12' },
-  { id: '5', reference: 'CLI-005', nom: 'MécaPro', adresse: '202 Zone Industrielle, 59000 Lille', email: 'devis@mecapro.fr', telephone: '03 20 45 67 89' },
-];
+import { getClients, subscribe, type Client } from '@/data/clientsStore';
 
 interface ClientSelectorProps {
   selectedClient: {
@@ -50,6 +33,15 @@ interface ClientSelectorProps {
 export function ClientSelector({ selectedClient, onClientChange }: ClientSelectorProps) {
   const [open, setOpen] = useState(false);
   const [isNewClient, setIsNewClient] = useState(!selectedClient.reference);
+  const [clients, setClients] = useState<Client[]>(getClients);
+
+  // S'abonner aux changements du store
+  useEffect(() => {
+    const unsubscribe = subscribe(() => {
+      setClients(getClients());
+    });
+    return unsubscribe;
+  }, []);
 
   const handleSelectClient = (client: Client) => {
     onClientChange(client);
@@ -84,7 +76,7 @@ export function ClientSelector({ selectedClient, onClientChange }: ClientSelecto
               <CommandList>
                 <CommandEmpty>Aucun client trouvé.</CommandEmpty>
                 <CommandGroup heading="Clients existants">
-                  {mockClients.map((client) => (
+                  {clients.map((client) => (
                     <CommandItem
                       key={client.id}
                       value={`${client.nom} ${client.reference}`}
