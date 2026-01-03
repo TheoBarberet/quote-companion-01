@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import DevisForm from "./pages/DevisForm";
 import DevisSummary from "./pages/DevisSummary";
+import Clients from "./pages/Clients";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/clients" element={<Clients />} />
           <Route path="/devis/new" element={<DevisForm />} />
           <Route path="/devis/:id" element={<DevisSummary />} />
           <Route path="/devis/:id/edit" element={<DevisForm />} />

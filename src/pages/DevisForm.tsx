@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,13 +19,17 @@ import { ProductSelector } from '@/components/devis/ProductSelector';
 export default function DevisForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const isEditing = id && id !== 'new';
+  
+  // Récupère le client pré-rempli depuis la navigation (depuis la page Clients)
+  const prefilledClient = location.state?.prefilledClient;
   
   const existingDevis = isEditing ? mockDevis.find(d => d.id === id) : null;
 
   const [formData, setFormData] = useState({
-    client: existingDevis?.client || { reference: '', nom: '', adresse: '', email: '', telephone: '' },
+    client: prefilledClient || existingDevis?.client || { reference: '', nom: '', adresse: '', email: '', telephone: '' },
     produit: existingDevis?.produit || { reference: '', designation: '', quantite: 0, variantes: '' },
     composants: existingDevis?.composants || [],
     matieresPremières: existingDevis?.matieresPremières || [],
