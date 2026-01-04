@@ -1,34 +1,40 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { DevisTable } from '@/components/devis/DevisTable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockDevis } from '@/data/mockDevis';
+import { getDevis, subscribeDevis } from '@/data/devisStore';
 import { Plus, Search, FileText, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [devis, setDevis] = useState(getDevis);
 
-  const filteredDevis = mockDevis.filter((d) => {
-    const matchesSearch = 
+  useEffect(() => {
+    const unsubscribe = subscribeDevis(() => setDevis(getDevis()));
+    return unsubscribe;
+  }, []);
+
+  const filteredDevis = devis.filter((d) => {
+    const matchesSearch =
       d.reference.toLowerCase().includes(searchQuery.toLowerCase()) ||
       d.client.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
       d.produit.designation.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
   const stats = {
-    total: mockDevis.length,
-    draft: mockDevis.filter(d => d.status === 'draft').length,
-    pending: mockDevis.filter(d => d.status === 'pending').length,
-    validated: mockDevis.filter(d => d.status === 'validated').length,
+    total: devis.length,
+    draft: devis.filter((d) => d.status === 'draft').length,
+    pending: devis.filter((d) => d.status === 'pending').length,
+    validated: devis.filter((d) => d.status === 'validated').length,
   };
 
   return (
