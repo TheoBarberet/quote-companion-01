@@ -1,25 +1,34 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/devis/StatusBadge';
-import { mockDevis } from '@/data/mockDevis';
-import { 
-  ArrowLeft, Download, Send, CheckCircle, AlertTriangle,
-  FileText, Edit
+import type { Devis } from '@/types/devis';
+import { getDevisById } from '@/data/devisStore';
+import {
+  ArrowLeft,
+  Download,
+  Send,
+  CheckCircle,
+  AlertTriangle,
+  FileText,
+  Edit,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DevisSummary() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
-  
-  const devis = mockDevis.find(d => d.id === id) || mockDevis[0];
+
+  const draftDevis = location.state?.draftDevis as Devis | undefined;
+  const devis = draftDevis ?? (id ? getDevisById(id) : null);
+  const isDraft = id === 'new' || Boolean(draftDevis && id === 'new');
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
-      currency: 'EUR'
+      currency: 'EUR',
     }).format(amount);
   };
 
@@ -38,13 +47,36 @@ export default function DevisSummary() {
     navigate('/dashboard');
   };
 
+  if (!devis) {
+    return (
+      <AppLayout>
+        <div className="p-8 animate-fade-in">
+          <div className="section-card">
+            <p className="text-muted-foreground">Aucun devis à afficher.</p>
+            <div className="mt-4">
+              <Button onClick={() => navigate('/dashboard')}>Retour au tableau de bord</Button>
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   const margeOk = devis.margeReelle >= devis.marges.margeCible;
 
   return (
     <AppLayout>
       <div className="p-8 animate-fade-in">
         <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="sm" onClick={() => navigate(`/devis/${id}/edit`)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              navigate(isDraft ? '/devis/new' : `/devis/${id}/edit`, {
+                state: isDraft ? { draftDevis } : undefined,
+              })
+            }
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Retour au formulaire
           </Button>
@@ -54,7 +86,14 @@ export default function DevisSummary() {
               <StatusBadge status={devis.status} />
             </div>
           </div>
-          <Button variant="outline" onClick={() => navigate(`/devis/${id}/edit`)}>
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate(isDraft ? '/devis/new' : `/devis/${id}/edit`, {
+                state: isDraft ? { draftDevis } : undefined,
+              })
+            }
+          >
             <Edit className="w-4 h-4 mr-2" />
             Modifier
           </Button>

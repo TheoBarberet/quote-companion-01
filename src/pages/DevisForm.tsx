@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -6,10 +6,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockDevis } from '@/data/mockDevis';
-import { 
-  ArrowLeft, Save, Sparkles, Plus, Trash2,
-  User, Package, Puzzle, Layers, Factory, Truck, TrendingUp
+import type { Devis } from '@/types/devis';
+import { addDevis, getDevisById, updateDevis } from '@/data/devisStore';
+import {
+  ArrowLeft,
+  Save,
+  Sparkles,
+  Plus,
+  Trash2,
+  User,
+  Package,
+  Puzzle,
+  Layers,
+  Factory,
+  Truck,
+  TrendingUp,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExcelImportButton } from '@/components/devis/ExcelImportButton';
@@ -21,29 +32,71 @@ export default function DevisForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const isEditing = id && id !== 'new';
-  
+
+  const isEditing = Boolean(id && id !== 'new');
+
   // Récupère le client pré-rempli depuis la navigation (depuis la page Clients)
   const prefilledClient = location.state?.prefilledClient;
-  
-  const existingDevis = isEditing ? mockDevis.find(d => d.id === id) : null;
+
+  // Récupère un brouillon depuis la page synthèse (/devis/new/summary)
+  const draftDevis = location.state?.draftDevis as Devis | undefined;
+
+  const existingDevis = isEditing && id ? getDevisById(id) : null;
+  const initialDevis = draftDevis ?? existingDevis;
 
   const [formData, setFormData] = useState({
-    client: prefilledClient || existingDevis?.client || { reference: '', nom: '', adresse: '', email: '', telephone: '' },
-    produit: existingDevis?.produit || { reference: '', designation: '', quantite: 0, variantes: '' },
-    composants: existingDevis?.composants || [],
-    matieresPremières: existingDevis?.matieresPremières || [],
-    etapesProduction: existingDevis?.etapesProduction || [],
-    transport: existingDevis?.transport || { mode: 'Routier', distance: 0, volume: 0, cout: 0 },
-    marges: existingDevis?.marges || { margeCible: 25, prixVenteSouhaite: 0 },
-    notes: existingDevis?.notes || ''
+    client:
+      prefilledClient ||
+      initialDevis?.client ||
+      ({ id: '', reference: '', nom: '', adresse: '', email: '', telephone: '' } as any),
+    produit:
+      initialDevis?.produit ||
+      ({ id: '', reference: '', designation: '', quantite: 0, variantes: '' } as any),
+    composants: initialDevis?.composants || [],
+    matieresPremières: initialDevis?.matieresPremières || [],
+    etapesProduction: initialDevis?.etapesProduction || [],
+    transport: initialDevis?.transport || { mode: 'Routier', distance: 0, volume: 0, cout: 0 },
+    marges: initialDevis?.marges || { margeCible: 25, prixVenteSouhaite: 0 },
+    notes: initialDevis?.notes || '',
   });
 
-  const handleSave = () => {
+  const handleSave = (coutRevient: number) => {
+    const prixVente = formData.marges.prixVenteSouhaite || 0;
+    const margeReelle =
+      prixVente > 0 ? ((prixVente - coutRevient) / prixVente) * 100 : 0;
+
+    const clientId = formData.client.id || crypto.randomUUID();
+    const produitId = formData.produit.id || crypto.randomUUID();
+
+    const payload = {
+      status: existingDevis?.status ?? 'pending',
+      creePar: existingDevis?.creePar ?? 'Utilisateur',
+      client: { ...formData.client, id: clientId },
+      produit: { ...formData.produit, id: produitId },
+      composants: formData.composants,
+      matieresPremières: formData.matieresPremières,
+      etapesProduction: formData.etapesProduction,
+      transport: formData.transport,
+      marges: formData.marges,
+      coutRevient,
+      prixVente,
+      margeReelle,
+      notes: formData.notes,
+    };
+
+    if (existingDevis) {
+      updateDevis(existingDevis.id, payload);
+    } else {
+      addDevis(payload);
+    }
+
     toast({
       title: 'Devis enregistré',
-      description: isEditing ? 'Les modifications ont été sauvegardées' : 'Le nouveau devis a été créé',
+      description: existingDevis
+        ? 'Les modifications ont été sauvegardées'
+        : 'Le nouveau devis a été créé',
     });
+
     navigate('/dashboard');
   };
 
@@ -91,23 +144,23 @@ export default function DevisForm() {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-foreground">
-              {isEditing ? `Modifier ${existingDevis?.reference}` : 'Nouveau devis'}
+              {existingDevis ? `Modifier ${existingDevis.reference}` : 'Nouveau devis'}
             </h1>
           </div>
-          <ExcelImportButton 
+          <ExcelImportButton
             onDataExtracted={(data) => {
-              setFormData(prev => ({
+              setFormData((prev) => ({
                 ...prev,
                 client: { ...prev.client, ...data.client },
-                produit: { ...prev.produit, ...data.produit }
+                produit: { ...prev.produit, ...data.produit },
               }));
-            }} 
+            }}
           />
           <Button variant="outline" className="gap-2">
             <Sparkles className="w-4 h-4" />
             Suggestions IA
           </Button>
-          <Button onClick={handleSave}>
+          <Button onClick={() => handleSave(coutRevient)}>
             <Save className="w-4 h-4 mr-2" />
             Enregistrer
           </Button>
@@ -520,7 +573,45 @@ export default function DevisForm() {
                 )}
               </div>
 
-              <Button className="w-full mt-6" onClick={() => navigate(`/devis/${id || 'new'}/summary`)}>
+              <Button
+                className="w-full mt-6"
+                onClick={() => {
+                  const prixVente = formData.marges.prixVenteSouhaite || 0;
+                  const margeReelle =
+                    prixVente > 0
+                      ? ((prixVente - coutRevient) / prixVente) * 100
+                      : 0;
+
+                  const draft: Devis = {
+                    id: existingDevis?.id ?? 'new',
+                    reference: existingDevis?.reference ?? 'Nouveau devis',
+                    dateCreation:
+                      existingDevis?.dateCreation ?? new Date().toISOString().slice(0, 10),
+                    dateModification: new Date().toISOString().slice(0, 10),
+                    status: existingDevis?.status ?? 'draft',
+                    creePar: existingDevis?.creePar ?? 'Utilisateur',
+                    client: {
+                      ...formData.client,
+                      id: formData.client.id || crypto.randomUUID(),
+                    },
+                    produit: {
+                      ...formData.produit,
+                      id: formData.produit.id || crypto.randomUUID(),
+                    },
+                    composants: formData.composants,
+                    matieresPremières: formData.matieresPremières,
+                    etapesProduction: formData.etapesProduction,
+                    transport: formData.transport,
+                    marges: formData.marges,
+                    coutRevient,
+                    prixVente,
+                    margeReelle,
+                    notes: formData.notes,
+                  };
+
+                  navigate(`/devis/${id || 'new'}/summary`, { state: { draftDevis: draft } });
+                }}
+              >
                 Voir la synthèse
               </Button>
             </div>
