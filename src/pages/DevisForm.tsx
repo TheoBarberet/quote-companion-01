@@ -112,10 +112,20 @@ export default function DevisForm() {
       etapesProduction: payload.etapesProduction,
     });
 
+    let result;
     if (existingDevis) {
-      await updateDevis(existingDevis.id, payload);
+      result = await updateDevis(existingDevis.id, payload);
     } else {
-      await addDevis(payload);
+      result = await addDevis(payload);
+    }
+
+    if (!result) {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de sauvegarder le devis. Veuillez vous reconnecter.',
+        variant: 'destructive',
+      });
+      return;
     }
 
     toast({
