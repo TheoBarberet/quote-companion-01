@@ -3,7 +3,8 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/devis/StatusBadge';
 import type { Devis } from '@/types/devis';
-import { getDevisById } from '@/data/devisStore';
+import { addDevis, getDevisById, updateDevis } from '@/data/devisStore';
+import { ensureProductTemplateFromDevis } from '@/data/productsStore';
 import {
   ArrowLeft,
   Download,
@@ -40,6 +41,54 @@ export default function DevisSummary() {
   };
 
   const handleValidate = () => {
+    if (!devis) return;
+
+    // Si on vient de /devis/new/summary : on crée réellement le devis au moment de la validation
+    if (id === 'new') {
+      ensureProductTemplateFromDevis(devis);
+
+      const created = addDevis({
+        status: 'validated',
+        creePar: devis.creePar,
+        client: devis.client,
+        produit: devis.produit,
+        composants: devis.composants,
+        matieresPremières: devis.matieresPremières,
+        etapesProduction: devis.etapesProduction,
+        transport: devis.transport,
+        marges: devis.marges,
+        coutRevient: devis.coutRevient,
+        prixVente: devis.prixVente,
+        margeReelle: devis.margeReelle,
+        notes: devis.notes,
+      });
+
+      toast({
+        title: 'Devis validé',
+        description: `Le devis ${created.reference} a été créé et envoyé.`,
+      });
+      navigate('/dashboard');
+      return;
+    }
+
+    // Devis existant : on le passe en validé
+    ensureProductTemplateFromDevis(devis);
+    updateDevis(devis.id, {
+      status: 'validated',
+      creePar: devis.creePar,
+      client: devis.client,
+      produit: devis.produit,
+      composants: devis.composants,
+      matieresPremières: devis.matieresPremières,
+      etapesProduction: devis.etapesProduction,
+      transport: devis.transport,
+      marges: devis.marges,
+      coutRevient: devis.coutRevient,
+      prixVente: devis.prixVente,
+      margeReelle: devis.margeReelle,
+      notes: devis.notes,
+    });
+
     toast({
       title: 'Devis validé',
       description: 'Le devis a été envoyé pour approbation',

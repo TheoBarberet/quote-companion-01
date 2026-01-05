@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import {
@@ -9,72 +9,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Produit, Composant, MatierePremiere, EtapeProduction } from '@/types/devis';
+import { getProducts, subscribeProducts } from '@/data/productsStore';
 
-// Produits avec leurs composants, matières premières et étapes associés
-const mockProducts: Array<{
-  produit: Omit<Produit, 'id' | 'quantite'>;
-  composants: Omit<Composant, 'id'>[];
-  matieresPremières: Omit<MatierePremiere, 'id'>[];
-  etapesProduction: Omit<EtapeProduction, 'id'>[];
-}> = [
-  {
-    produit: {
-      reference: 'PRD-2024-A1',
-      designation: 'Pièce mécanique type A',
-      variantes: 'Finition chromée'
-    },
-    composants: [
-      { reference: 'VIS-M8', designation: 'Vis M8x25', fournisseur: 'Wurth', prixUnitaire: 0.12, quantite: 2000 },
-      { reference: 'ROUL-6205', designation: 'Roulement 6205', fournisseur: 'SKF', prixUnitaire: 8.50, quantite: 500 }
-    ],
-    matieresPremières: [
-      { type: 'Acier S235', prixKg: 1.20, quantiteKg: 250 }
-    ],
-    etapesProduction: [
-      { operation: 'Découpe laser', dureeHeures: 8, tauxHoraire: 65 },
-      { operation: 'Usinage CNC', dureeHeures: 24, tauxHoraire: 85 },
-      { operation: 'Assemblage', dureeHeures: 16, tauxHoraire: 45 }
-    ]
-  },
-  {
-    produit: {
-      reference: 'PRD-2024-B2',
-      designation: 'Châssis soudé',
-      variantes: ''
-    },
-    composants: [
-      { reference: 'TUBE-40x40', designation: 'Tube carré 40x40', fournisseur: 'ArcelorMittal', prixUnitaire: 4.80, quantite: 200 }
-    ],
-    matieresPremières: [
-      { type: 'Acier galvanisé', prixKg: 1.85, quantiteKg: 800 }
-    ],
-    etapesProduction: [
-      { operation: 'Soudure MIG', dureeHeures: 40, tauxHoraire: 55 },
-      { operation: 'Contrôle qualité', dureeHeures: 8, tauxHoraire: 50 }
-    ]
-  },
-  {
-    produit: {
-      reference: 'PRD-2024-C3',
-      designation: 'Boîtier électronique',
-      variantes: 'Version IP65'
-    },
-    composants: [
-      { reference: 'PCB-001', designation: 'Circuit imprimé principal', fournisseur: 'Eurocircuits', prixUnitaire: 12.50, quantite: 100 },
-      { reference: 'CONN-USB', designation: 'Connecteur USB-C', fournisseur: 'Molex', prixUnitaire: 0.85, quantite: 100 },
-      { reference: 'BOITIER-ABS', designation: 'Boîtier ABS moulé', fournisseur: 'Plastiform', prixUnitaire: 3.20, quantite: 100 }
-    ],
-    matieresPremières: [
-      { type: 'ABS granulés', prixKg: 2.50, quantiteKg: 50 },
-      { type: 'Cuivre', prixKg: 8.00, quantiteKg: 10 }
-    ],
-    etapesProduction: [
-      { operation: 'Injection plastique', dureeHeures: 12, tauxHoraire: 70 },
-      { operation: 'Assemblage électronique', dureeHeures: 20, tauxHoraire: 55 },
-      { operation: 'Test fonctionnel', dureeHeures: 8, tauxHoraire: 45 }
-    ]
-  }
-];
+// Les produits disponibles sont stockés dans un store partagé (comme clientsStore).
 
 interface ProductSelectorProps {
   selectedProduct: { reference: string; designation: string; quantite: number; variantes?: string };
@@ -96,6 +33,12 @@ interface BaseProductData {
 export function ProductSelector({ selectedProduct, onProductChange }: ProductSelectorProps) {
   const [isNewProduct, setIsNewProduct] = useState(!selectedProduct.reference);
   const [baseData, setBaseData] = useState<BaseProductData | null>(null);
+  const [products, setProducts] = useState(getProducts);
+
+  useEffect(() => {
+    const unsubscribe = subscribeProducts(() => setProducts(getProducts()));
+    return unsubscribe;
+  }, []);
 
   // Fonction pour mettre à l'échelle les données selon la quantité
   const scaleDataByQuantity = (base: BaseProductData, quantity: number) => {
@@ -131,7 +74,7 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
     }
 
     setIsNewProduct(false);
-    const found = mockProducts.find(p => p.produit.reference === reference);
+    const found = products.find(p => p.produit.reference === reference);
     if (found) {
       // Stocke les données de base pour 1 unité
       setBaseData({
@@ -197,7 +140,7 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
             </SelectTrigger>
             <SelectContent className="bg-background border shadow-lg z-50">
               <SelectItem value="new">+ Nouveau produit</SelectItem>
-              {mockProducts.map((p) => (
+              {products.map((p) => (
                 <SelectItem key={p.produit.reference} value={p.produit.reference}>
                   {p.produit.reference} - {p.produit.designation}
                 </SelectItem>
