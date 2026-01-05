@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Devis } from '@/types/devis';
 import { addDevis, getDevisById, updateDevis } from '@/data/devisStore';
-import { ensureProductTemplateFromDevis } from '@/data/productsStore';
+import { ensureProductFromDevis } from '@/data/productsStore';
 import { addClient } from '@/data/clientsStore';
 import {
   ArrowLeft,
@@ -121,7 +121,8 @@ export default function DevisForm() {
       notes: formData.notes,
     };
 
-    ensureProductTemplateFromDevis({
+    // Si c'est un nouveau produit, le créer en BDD
+    await ensureProductFromDevis({
       produit: payload.produit,
       composants: payload.composants,
       matieresPremières: payload.matieresPremières,
