@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -10,6 +11,9 @@ import {
 } from '@/components/ui/select';
 import { Composant, MatierePremiere, EtapeProduction } from '@/types/devis';
 import { fetchProducts, subscribeProducts, ProductTemplate } from '@/data/productsStore';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Sparkles, Loader2 } from 'lucide-react';
 
 interface ProductSelectorProps {
   selectedProduct: { reference: string; designation: string; quantite: number; variantes?: string };
@@ -32,18 +36,17 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
   const [isNewProduct, setIsNewProduct] = useState(!selectedProduct.reference);
   const [baseData, setBaseData] = useState<BaseProductData | null>(null);
   const [products, setProducts] = useState<ProductTemplate[]>([]);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Fetch products from DB
     fetchProducts().then(setProducts);
-    // Subscribe to changes
     const unsubscribe = subscribeProducts(() => {
       fetchProducts().then(setProducts);
     });
     return unsubscribe;
   }, []);
 
-  // Scale quantities based on ratio between new quantity and original quantity
   const scaleDataByQuantity = (base: BaseProductData, newQuantity: number) => {
     const ratio = newQuantity / base.quantiteOriginale;
     
@@ -89,7 +92,6 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
       };
       setBaseData(base);
 
-      // Use the original quantity stored in DB
       const quantity = found.quantiteOriginale;
       const { composantsWithIds, matieresWithIds, etapesWithIds } = scaleDataByQuantity(base, quantity);
 
@@ -123,6 +125,73 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
         matieresPremières: [],
         etapesProduction: []
       });
+    }
+  };
+
+  const handleAISuggestions = async () => {
+    if (!selectedProduct.designation.trim()) return;
+
+    setIsLoadingAI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-suggestions', {
+        body: { 
+          productDesignation: selectedProduct.designation,
+          type: 'full'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.suggestions) {
+        const suggestions = data.suggestions;
+        
+        const composants: Composant[] = (suggestions.composants || []).map((c: any, i: number) => ({
+          id: `comp-ai-${Date.now()}-${i}`,
+          reference: c.reference || `COMP-${i + 1}`,
+          designation: c.designation,
+          fournisseur: c.fournisseur || '',
+          prixUnitaire: c.prixUnitaire || 0,
+          quantite: c.quantite || 1,
+          url: c.url || ''
+        }));
+
+        const matieresPremières: MatierePremiere[] = (suggestions.matieresPremières || []).map((m: any, i: number) => ({
+          id: `mat-ai-${Date.now()}-${i}`,
+          type: m.type,
+          fournisseur: m.fournisseur || '',
+          prixKg: m.prixKg || 0,
+          quantiteKg: m.quantiteKg || 1,
+          url: m.url || ''
+        }));
+
+        const etapesProduction: EtapeProduction[] = (suggestions.etapesProduction || []).map((e: any, i: number) => ({
+          id: `etape-ai-${Date.now()}-${i}`,
+          operation: e.operation,
+          dureeHeures: e.dureeHeures || 1,
+          tauxHoraire: e.tauxHoraire || 35
+        }));
+
+        onProductChange({
+          produit: selectedProduct,
+          composants,
+          matieresPremières,
+          etapesProduction
+        });
+
+        toast({
+          title: 'Suggestions IA appliquées',
+          description: `${composants.length} composants, ${matieresPremières.length} matières, ${etapesProduction.length} étapes ajoutés`,
+        });
+      }
+    } catch (error) {
+      console.error('AI suggestions error:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de récupérer les suggestions IA',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoadingAI(false);
     }
   };
 
@@ -188,6 +257,27 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
               placeholder="Nom du produit"
             />
           </div>
+          
+          {/* AI Suggestions Button - visible only when designation has content */}
+          {selectedProduct.designation.trim() && (
+            <div className="col-span-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2 border-primary/50 text-primary hover:bg-primary/10"
+                onClick={handleAISuggestions}
+                disabled={isLoadingAI}
+              >
+                {isLoadingAI ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                {isLoadingAI ? 'Analyse en cours...' : 'Suggestions IA pour ce produit'}
+              </Button>
+            </div>
+          )}
+
           <div className="col-span-2 space-y-2">
             <Label>Variantes / Options</Label>
             <Input
