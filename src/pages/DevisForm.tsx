@@ -33,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ExcelImportButton } from '@/components/devis/ExcelImportButton';
 import { ClientSelector } from '@/components/devis/ClientSelector';
 import { ProductSelector } from '@/components/devis/ProductSelector';
+import { OperationAutocomplete } from '@/components/devis/OperationAutocomplete';
 
 export default function DevisForm() {
   const { id } = useParams();
@@ -631,14 +632,15 @@ export default function DevisForm() {
                     <div key={etape.id} className="grid grid-cols-4 gap-2 items-end p-3 bg-muted/30 rounded-lg">
                       <div className="space-y-1">
                         <Label className="text-xs">Opération</Label>
-                        <Input 
+                        <OperationAutocomplete
                           value={etape.operation}
-                          onChange={(e) => {
+                          tauxHoraire={etape.tauxHoraire}
+                          onChange={(operation, tauxHoraire) => {
                             const updated = [...formData.etapesProduction];
-                            updated[idx].operation = e.target.value;
+                            updated[idx].operation = operation;
+                            updated[idx].tauxHoraire = tauxHoraire;
                             setFormData(prev => ({ ...prev, etapesProduction: updated }));
                           }}
-                          className="h-9"
                         />
                       </div>
                       <div className="space-y-1">
