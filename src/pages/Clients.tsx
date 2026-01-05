@@ -19,10 +19,20 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { Label } from '@/components/ui/label';
 import { Plus, Search, Eye, Pencil, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { addClient, updateClient, subscribeClients, type Client } from '@/data/clientsStore';
+
+const ITEMS_PER_PAGE = 10;
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -34,6 +44,7 @@ export default function Clients() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<Client | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [createForm, setCreateForm] = useState({
     nom: '',
     adresse: '',
@@ -52,6 +63,23 @@ export default function Clients() {
     client.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const totalPages = Math.ceil(filteredClients.length / ITEMS_PER_PAGE);
+  const paginatedClients = filteredClients.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
   const handleView = (client: Client) => {
     setSelectedClient(client);
@@ -159,7 +187,7 @@ export default function Clients() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.map((client) => (
+                {paginatedClients.map((client) => (
                   <TableRow key={client.id}>
                     <TableCell className="font-mono text-sm">{client.reference}</TableCell>
                     <TableCell className="font-medium">{client.nom}</TableCell>
@@ -200,7 +228,7 @@ export default function Clients() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {filteredClients.length === 0 && (
+                {paginatedClients.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                       Aucun client trouvé
@@ -209,6 +237,39 @@ export default function Clients() {
                 )}
               </TableBody>
             </Table>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-4">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => handlePageChange(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
