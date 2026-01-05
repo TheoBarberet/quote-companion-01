@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -68,41 +68,52 @@ export default function DevisForm() {
   const [loadingAI, setLoadingAI] = useState<{ type: 'component' | 'material'; index: number } | null>(null);
   const [calculatingTransport, setCalculatingTransport] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set());
+  const formRef = useRef<HTMLDivElement>(null);
   const showItemAISearch = false; // temporairement désactivé (non fonctionnel)
 
   // Fonction de validation du formulaire
-  const validateForm = (): string[] => {
+  const validateForm = (): { errors: string[]; errorFields: Set<string> } => {
     const errors: string[] = [];
+    const errorFields = new Set<string>();
 
     // Validation client
     if (!formData.client.nom?.trim()) {
       errors.push('Le nom du client est requis');
+      errorFields.add('client.nom');
     }
     if (!formData.client.adresse?.trim()) {
       errors.push('L\'adresse du client est requise');
+      errorFields.add('client.adresse');
     }
 
     // Validation produit
     if (!formData.produit.designation?.trim()) {
       errors.push('La désignation du produit est requise');
+      errorFields.add('produit.designation');
     }
     if (!formData.produit.quantite || formData.produit.quantite <= 0) {
       errors.push('La quantité du produit doit être supérieure à 0');
+      errorFields.add('produit.quantite');
     }
 
     // Validation composants
     formData.composants.forEach((comp, idx) => {
       if (!comp.designation?.trim()) {
         errors.push(`Composant ${idx + 1} : la désignation est requise`);
+        errorFields.add(`composant.${idx}.designation`);
       }
       if (!comp.fournisseur?.trim()) {
         errors.push(`Composant ${idx + 1} : le fournisseur est requis`);
+        errorFields.add(`composant.${idx}.fournisseur`);
       }
       if (!comp.prixUnitaire || comp.prixUnitaire <= 0) {
         errors.push(`Composant ${idx + 1} : le prix unitaire doit être supérieur à 0`);
+        errorFields.add(`composant.${idx}.prixUnitaire`);
       }
       if (!comp.quantite || comp.quantite <= 0) {
         errors.push(`Composant ${idx + 1} : la quantité doit être supérieure à 0`);
+        errorFields.add(`composant.${idx}.quantite`);
       }
     });
 
@@ -110,15 +121,19 @@ export default function DevisForm() {
     formData.matieresPremières.forEach((mat, idx) => {
       if (!mat.type?.trim()) {
         errors.push(`Matière première ${idx + 1} : le type est requis`);
+        errorFields.add(`matiere.${idx}.type`);
       }
       if (!mat.fournisseur?.trim()) {
         errors.push(`Matière première ${idx + 1} : le fournisseur est requis`);
+        errorFields.add(`matiere.${idx}.fournisseur`);
       }
       if (!mat.prixKg || mat.prixKg <= 0) {
         errors.push(`Matière première ${idx + 1} : le prix/kg doit être supérieur à 0`);
+        errorFields.add(`matiere.${idx}.prixKg`);
       }
       if (!mat.quantiteKg || mat.quantiteKg <= 0) {
         errors.push(`Matière première ${idx + 1} : la quantité doit être supérieure à 0`);
+        errorFields.add(`matiere.${idx}.quantiteKg`);
       }
     });
 
@@ -126,37 +141,60 @@ export default function DevisForm() {
     formData.etapesProduction.forEach((etape, idx) => {
       if (!etape.operation?.trim()) {
         errors.push(`Étape de production ${idx + 1} : l'opération est requise`);
+        errorFields.add(`etape.${idx}.operation`);
       }
       if (!etape.dureeHeures || etape.dureeHeures <= 0) {
         errors.push(`Étape de production ${idx + 1} : la durée doit être supérieure à 0`);
+        errorFields.add(`etape.${idx}.dureeHeures`);
       }
       if (!etape.tauxHoraire || etape.tauxHoraire <= 0) {
         errors.push(`Étape de production ${idx + 1} : le taux horaire doit être supérieur à 0`);
+        errorFields.add(`etape.${idx}.tauxHoraire`);
       }
     });
 
     // Validation transport
     if (!formData.transport.distance || formData.transport.distance <= 0) {
       errors.push('La distance de transport doit être supérieure à 0');
+      errorFields.add('transport.distance');
     }
     if (!formData.transport.volume || formData.transport.volume <= 0) {
       errors.push('Le volume de transport doit être supérieur à 0');
+      errorFields.add('transport.volume');
     }
     if (!formData.transport.cout || formData.transport.cout <= 0) {
       errors.push('Le coût de transport doit être supérieur à 0');
+      errorFields.add('transport.cout');
     }
 
     // Validation marge
     if (!formData.marges.prixVenteSouhaite || formData.marges.prixVenteSouhaite <= 0) {
       errors.push('Le prix de vente souhaité doit être supérieur à 0');
+      errorFields.add('marges.prixVenteSouhaite');
     } else if (coutRevient > 0) {
       const margeReelleCalc = ((formData.marges.prixVenteSouhaite - coutRevient) / formData.marges.prixVenteSouhaite) * 100;
       if (margeReelleCalc < formData.marges.margeCible) {
         errors.push(`La marge réelle (${margeReelleCalc.toFixed(1)}%) est inférieure à la marge cible (${formData.marges.margeCible}%)`);
+        errorFields.add('marges.prixVenteSouhaite');
       }
     }
 
-    return errors;
+    return { errors, errorFields };
+  };
+
+  // Helper pour obtenir la classe CSS d'erreur
+  const getErrorClass = (fieldName: string) => {
+    return fieldErrors.has(fieldName) ? 'border-destructive ring-1 ring-destructive' : '';
+  };
+
+  // Scroll vers le premier champ en erreur
+  const scrollToFirstError = () => {
+    setTimeout(() => {
+      const firstErrorElement = formRef.current?.querySelector('[data-error="true"]');
+      if (firstErrorElement) {
+        firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   };
 
   // Calcul du coût de revient pour la validation
@@ -187,17 +225,20 @@ export default function DevisForm() {
 
   const handleSave = async () => {
     // Valider le formulaire avant de sauvegarder
-    const errors = validateForm();
+    const { errors, errorFields: newErrorFields } = validateForm();
     if (errors.length > 0) {
       setValidationErrors(errors);
+      setFieldErrors(newErrorFields);
       toast({
         title: 'Formulaire incomplet',
         description: `${errors.length} erreur(s) détectée(s). Veuillez compléter le formulaire.`,
         variant: 'destructive',
       });
+      scrollToFirstError();
       return;
     }
     setValidationErrors([]);
+    setFieldErrors(new Set());
 
     const prixVente = formData.marges.prixVenteSouhaite || 0;
     const margeReelle =
@@ -470,7 +511,7 @@ export default function DevisForm() {
           </Alert>
         )}
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-3 gap-6" ref={formRef}>
           {/* Main Form */}
           <div className="col-span-2 space-y-6">
             {/* Client */}
@@ -490,6 +531,8 @@ export default function DevisForm() {
                   onChange={(e) => setFormData(prev => ({ ...prev, client: { ...prev.client, adresse: e.target.value }}))}
                   placeholder="Adresse complète"
                   rows={2}
+                  className={getErrorClass('client.adresse')}
+                  data-error={fieldErrors.has('client.adresse')}
                 />
               </div>
             </div>
@@ -557,7 +600,8 @@ export default function DevisForm() {
                               updated[idx].designation = e.target.value;
                               setFormData(prev => ({ ...prev, composants: updated }));
                             }}
-                            className="h-9"
+                            className={`h-9 ${getErrorClass(`composant.${idx}.designation`)}`}
+                            data-error={fieldErrors.has(`composant.${idx}.designation`)}
                           />
                         </div>
                         <div className="space-y-1">
@@ -569,7 +613,8 @@ export default function DevisForm() {
                               updated[idx].fournisseur = e.target.value;
                               setFormData(prev => ({ ...prev, composants: updated }));
                             }}
-                            className="h-9"
+                            className={`h-9 ${getErrorClass(`composant.${idx}.fournisseur`)}`}
+                            data-error={fieldErrors.has(`composant.${idx}.fournisseur`)}
                           />
                         </div>
                         <div className="space-y-1">
@@ -583,7 +628,8 @@ export default function DevisForm() {
                               updated[idx].prixUnitaire = parseFloat(e.target.value) || 0;
                               setFormData(prev => ({ ...prev, composants: updated }));
                             }}
-                            className="h-9"
+                            className={`h-9 ${getErrorClass(`composant.${idx}.prixUnitaire`)}`}
+                            data-error={fieldErrors.has(`composant.${idx}.prixUnitaire`)}
                           />
                         </div>
                         <div className="space-y-1">
@@ -596,7 +642,8 @@ export default function DevisForm() {
                               updated[idx].quantite = parseInt(e.target.value) || 0;
                               setFormData(prev => ({ ...prev, composants: updated }));
                             }}
-                            className="h-9"
+                            className={`h-9 ${getErrorClass(`composant.${idx}.quantite`)}`}
+                            data-error={fieldErrors.has(`composant.${idx}.quantite`)}
                           />
                         </div>
                         <div className="flex gap-1">
@@ -661,7 +708,8 @@ export default function DevisForm() {
                               updated[idx].type = e.target.value;
                               setFormData(prev => ({ ...prev, matieresPremières: updated }));
                             }}
-                            className="h-9"
+                            className={`h-9 ${getErrorClass(`matiere.${idx}.type`)}`}
+                            data-error={fieldErrors.has(`matiere.${idx}.type`)}
                           />
                         </div>
                         <div className="space-y-1">
@@ -673,7 +721,8 @@ export default function DevisForm() {
                               updated[idx].fournisseur = e.target.value;
                               setFormData(prev => ({ ...prev, matieresPremières: updated }));
                             }}
-                            className="h-9"
+                            className={`h-9 ${getErrorClass(`matiere.${idx}.fournisseur`)}`}
+                            data-error={fieldErrors.has(`matiere.${idx}.fournisseur`)}
                           />
                         </div>
                         <div className="space-y-1">
@@ -687,7 +736,8 @@ export default function DevisForm() {
                               updated[idx].prixKg = parseFloat(e.target.value) || 0;
                               setFormData(prev => ({ ...prev, matieresPremières: updated }));
                             }}
-                            className="h-9"
+                            className={`h-9 ${getErrorClass(`matiere.${idx}.prixKg`)}`}
+                            data-error={fieldErrors.has(`matiere.${idx}.prixKg`)}
                           />
                         </div>
                         <div className="space-y-1">
@@ -700,7 +750,8 @@ export default function DevisForm() {
                               updated[idx].quantiteKg = parseFloat(e.target.value) || 0;
                               setFormData(prev => ({ ...prev, matieresPremières: updated }));
                             }}
-                            className="h-9"
+                            className={`h-9 ${getErrorClass(`matiere.${idx}.quantiteKg`)}`}
+                            data-error={fieldErrors.has(`matiere.${idx}.quantiteKg`)}
                           />
                         </div>
                         <div className="flex gap-1">
@@ -768,32 +819,34 @@ export default function DevisForm() {
                           }}
                         />
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Durée (h)</Label>
-                        <Input 
-                          type="number"
-                          value={etape.dureeHeures}
-                          onChange={(e) => {
-                            const updated = [...formData.etapesProduction];
-                            updated[idx].dureeHeures = parseFloat(e.target.value) || 0;
-                            setFormData(prev => ({ ...prev, etapesProduction: updated }));
-                          }}
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Taux horaire (€)</Label>
-                        <Input 
-                          type="number"
-                          value={etape.tauxHoraire}
-                          onChange={(e) => {
-                            const updated = [...formData.etapesProduction];
-                            updated[idx].tauxHoraire = parseFloat(e.target.value) || 0;
-                            setFormData(prev => ({ ...prev, etapesProduction: updated }));
-                          }}
-                          className="h-9"
-                        />
-                      </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Durée (h)</Label>
+                          <Input 
+                            type="number"
+                            value={etape.dureeHeures}
+                            onChange={(e) => {
+                              const updated = [...formData.etapesProduction];
+                              updated[idx].dureeHeures = parseFloat(e.target.value) || 0;
+                              setFormData(prev => ({ ...prev, etapesProduction: updated }));
+                            }}
+                            className={`h-9 ${getErrorClass(`etape.${idx}.dureeHeures`)}`}
+                            data-error={fieldErrors.has(`etape.${idx}.dureeHeures`)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Taux horaire (€)</Label>
+                          <Input 
+                            type="number"
+                            value={etape.tauxHoraire}
+                            onChange={(e) => {
+                              const updated = [...formData.etapesProduction];
+                              updated[idx].tauxHoraire = parseFloat(e.target.value) || 0;
+                              setFormData(prev => ({ ...prev, etapesProduction: updated }));
+                            }}
+                            className={`h-9 ${getErrorClass(`etape.${idx}.tauxHoraire`)}`}
+                            data-error={fieldErrors.has(`etape.${idx}.tauxHoraire`)}
+                          />
+                        </div>
                       <Button variant="ghost" size="sm" onClick={() => removeItem('etapesProduction', etape.id)}>
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
@@ -832,6 +885,8 @@ export default function DevisForm() {
                     type="number"
                     value={formData.transport.distance}
                     onChange={(e) => setFormData(prev => ({ ...prev, transport: { ...prev.transport, distance: parseFloat(e.target.value) || 0, info: undefined }}))}
+                    className={getErrorClass('transport.distance')}
+                    data-error={fieldErrors.has('transport.distance')}
                   />
                 </div>
                 <div className="space-y-2">
@@ -841,6 +896,8 @@ export default function DevisForm() {
                     step="0.1"
                     value={formData.transport.volume}
                     onChange={(e) => setFormData(prev => ({ ...prev, transport: { ...prev.transport, volume: parseFloat(e.target.value) || 0, info: undefined }}))}
+                    className={getErrorClass('transport.volume')}
+                    data-error={fieldErrors.has('transport.volume')}
                   />
                 </div>
                 <div className="space-y-2">
@@ -850,6 +907,8 @@ export default function DevisForm() {
                       type="number"
                       value={formData.transport.cout}
                       onChange={(e) => setFormData(prev => ({ ...prev, transport: { ...prev.transport, cout: parseFloat(e.target.value) || 0 }}))}
+                      className={getErrorClass('transport.cout')}
+                      data-error={fieldErrors.has('transport.cout')}
                     />
                     <Button 
                       type="button"
@@ -905,6 +964,8 @@ export default function DevisForm() {
                     type="number"
                     value={formData.marges.prixVenteSouhaite}
                     onChange={(e) => setFormData(prev => ({ ...prev, marges: { ...prev.marges, prixVenteSouhaite: parseFloat(e.target.value) || 0 }}))}
+                    className={getErrorClass('marges.prixVenteSouhaite')}
+                    data-error={fieldErrors.has('marges.prixVenteSouhaite')}
                   />
                 </div>
               </div>
