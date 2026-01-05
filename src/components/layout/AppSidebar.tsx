@@ -4,7 +4,6 @@ import majiLogo from '@/assets/maji-logo.png';
 import { useAuth } from '@/contexts/auth';
 
 const navigation = [
-  { name: 'Tableau de bord', href: '/dashboard', icon: Home },
   { name: 'Devis', href: '/dashboard', icon: FileText },
   { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Paramètres', href: '/settings', icon: Settings },
