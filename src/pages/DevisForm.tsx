@@ -12,6 +12,7 @@ import { ensureProductFromDevis } from '@/data/productsStore';
 import { addClient } from '@/data/clientsStore';
 import { calculateTransportCost } from '@/data/transportData';
 import { supabase } from '@/integrations/supabase/client';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   ArrowLeft,
   Save,
@@ -28,6 +29,7 @@ import {
   ExternalLink,
   Loader2,
   Calculator,
+  AlertCircle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExcelImportButton } from '@/components/devis/ExcelImportButton';
@@ -65,7 +67,97 @@ export default function DevisForm() {
 
   const [loadingAI, setLoadingAI] = useState<{ type: 'component' | 'material'; index: number } | null>(null);
   const [calculatingTransport, setCalculatingTransport] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const showItemAISearch = false; // temporairement désactivé (non fonctionnel)
+
+  // Fonction de validation du formulaire
+  const validateForm = (): string[] => {
+    const errors: string[] = [];
+
+    // Validation client
+    if (!formData.client.nom?.trim()) {
+      errors.push('Le nom du client est requis');
+    }
+    if (!formData.client.adresse?.trim()) {
+      errors.push('L\'adresse du client est requise');
+    }
+
+    // Validation produit
+    if (!formData.produit.designation?.trim()) {
+      errors.push('La désignation du produit est requise');
+    }
+    if (!formData.produit.quantite || formData.produit.quantite <= 0) {
+      errors.push('La quantité du produit doit être supérieure à 0');
+    }
+
+    // Validation composants
+    formData.composants.forEach((comp, idx) => {
+      if (!comp.designation?.trim()) {
+        errors.push(`Composant ${idx + 1} : la désignation est requise`);
+      }
+      if (!comp.prixUnitaire || comp.prixUnitaire <= 0) {
+        errors.push(`Composant ${idx + 1} : le prix unitaire doit être supérieur à 0`);
+      }
+      if (!comp.quantite || comp.quantite <= 0) {
+        errors.push(`Composant ${idx + 1} : la quantité doit être supérieure à 0`);
+      }
+    });
+
+    // Validation matières premières
+    formData.matieresPremières.forEach((mat, idx) => {
+      if (!mat.type?.trim()) {
+        errors.push(`Matière première ${idx + 1} : le type est requis`);
+      }
+      if (!mat.prixKg || mat.prixKg <= 0) {
+        errors.push(`Matière première ${idx + 1} : le prix/kg doit être supérieur à 0`);
+      }
+      if (!mat.quantiteKg || mat.quantiteKg <= 0) {
+        errors.push(`Matière première ${idx + 1} : la quantité doit être supérieure à 0`);
+      }
+    });
+
+    // Validation étapes de production
+    formData.etapesProduction.forEach((etape, idx) => {
+      if (!etape.operation?.trim()) {
+        errors.push(`Étape de production ${idx + 1} : l'opération est requise`);
+      }
+      if (!etape.dureeHeures || etape.dureeHeures <= 0) {
+        errors.push(`Étape de production ${idx + 1} : la durée doit être supérieure à 0`);
+      }
+      if (!etape.tauxHoraire || etape.tauxHoraire <= 0) {
+        errors.push(`Étape de production ${idx + 1} : le taux horaire doit être supérieur à 0`);
+      }
+    });
+
+    // Validation transport
+    if (!formData.transport.distance || formData.transport.distance <= 0) {
+      errors.push('La distance de transport doit être supérieure à 0');
+    }
+    if (!formData.transport.volume || formData.transport.volume <= 0) {
+      errors.push('Le volume de transport doit être supérieur à 0');
+    }
+    if (!formData.transport.cout || formData.transport.cout <= 0) {
+      errors.push('Le coût de transport doit être supérieur à 0');
+    }
+
+    // Validation marge
+    if (!formData.marges.prixVenteSouhaite || formData.marges.prixVenteSouhaite <= 0) {
+      errors.push('Le prix de vente souhaité doit être supérieur à 0');
+    } else if (coutRevient > 0) {
+      const margeReelleCalc = ((formData.marges.prixVenteSouhaite - coutRevient) / formData.marges.prixVenteSouhaite) * 100;
+      if (margeReelleCalc < formData.marges.margeCible) {
+        errors.push(`La marge réelle (${margeReelleCalc.toFixed(1)}%) est inférieure à la marge cible (${formData.marges.margeCible}%)`);
+      }
+    }
+
+    return errors;
+  };
+
+  // Calcul du coût de revient pour la validation
+  const totalComposantsForValidation = formData.composants.reduce((sum, c) => sum + (c.prixUnitaire * c.quantite), 0);
+  const totalMatieresForValidation = formData.matieresPremières.reduce((sum, m) => sum + (m.prixKg * m.quantiteKg), 0);
+  const totalProductionForValidation = formData.etapesProduction.reduce((sum, e) => sum + (e.dureeHeures * e.tauxHoraire), 0);
+  const coutRevient = totalComposantsForValidation + totalMatieresForValidation + totalProductionForValidation + formData.transport.cout;
   useEffect(() => {
     if (isEditing && id) {
       getDevisById(id).then((devis) => {
@@ -87,7 +179,20 @@ export default function DevisForm() {
     }
   }, [id, isEditing]);
 
-  const handleSave = async (coutRevient: number) => {
+  const handleSave = async () => {
+    // Valider le formulaire avant de sauvegarder
+    const errors = validateForm();
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      toast({
+        title: 'Formulaire incomplet',
+        description: `${errors.length} erreur(s) détectée(s). Veuillez compléter le formulaire.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    setValidationErrors([]);
+
     const prixVente = formData.marges.prixVenteSouhaite || 0;
     const margeReelle =
       prixVente > 0 ? ((prixVente - coutRevient) / prixVente) * 100 : 0;
@@ -301,11 +406,10 @@ export default function DevisForm() {
     }));
   };
 
-  // Calculs
-  const totalComposants = formData.composants.reduce((sum, c) => sum + (c.prixUnitaire * c.quantite), 0);
-  const totalMatieres = formData.matieresPremières.reduce((sum, m) => sum + (m.prixKg * m.quantiteKg), 0);
-  const totalProduction = formData.etapesProduction.reduce((sum, e) => sum + (e.dureeHeures * e.tauxHoraire), 0);
-  const coutRevient = totalComposants + totalMatieres + totalProduction + formData.transport.cout;
+  // Calculs pour le sidebar (utilisent coutRevient déjà calculé pour la validation)
+  const totalComposants = totalComposantsForValidation;
+  const totalMatieres = totalMatieresForValidation;
+  const totalProduction = totalProductionForValidation;
 
   if (loading) {
     return (
@@ -339,11 +443,26 @@ export default function DevisForm() {
               }));
             }}
           />
-          <Button onClick={() => handleSave(coutRevient)}>
+          <Button onClick={() => handleSave()}>
             <Save className="w-4 h-4 mr-2" />
             Enregistrer
           </Button>
         </div>
+
+        {/* Affichage des erreurs de validation */}
+        {validationErrors.length > 0 && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="font-medium mb-2">Veuillez corriger les erreurs suivantes :</div>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                {validationErrors.map((error, idx) => (
+                  <li key={idx}>{error}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid grid-cols-3 gap-6">
           {/* Main Form */}
