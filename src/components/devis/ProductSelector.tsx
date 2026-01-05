@@ -133,9 +133,12 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
 
     setIsLoadingAI(true);
     try {
+      const quantity = Math.max(1, selectedProduct.quantite || 1);
+      
       const { data, error } = await supabase.functions.invoke('ai-product-suggestions', {
         body: { 
           productDesignation: selectedProduct.designation,
+          quantity,
           type: 'full'
         }
       });
@@ -145,13 +148,14 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
       if (data?.suggestions) {
         const suggestions = data.suggestions;
         
+        // Scale quantities by the product quantity
         const composants: Composant[] = (suggestions.composants || []).map((c: any, i: number) => ({
           id: `comp-ai-${Date.now()}-${i}`,
           reference: c.reference || `COMP-${i + 1}`,
           designation: c.designation,
           fournisseur: c.fournisseur || '',
           prixUnitaire: c.prixUnitaire || 0,
-          quantite: c.quantite || 1,
+          quantite: Math.round((c.quantite || 1) * quantity),
           url: c.url || ''
         }));
 
@@ -160,14 +164,14 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
           type: m.type,
           fournisseur: m.fournisseur || '',
           prixKg: m.prixKg || 0,
-          quantiteKg: m.quantiteKg || 1,
+          quantiteKg: Math.round((m.quantiteKg || 1) * quantity * 100) / 100,
           url: m.url || ''
         }));
 
         const etapesProduction: EtapeProduction[] = (suggestions.etapesProduction || []).map((e: any, i: number) => ({
           id: `etape-ai-${Date.now()}-${i}`,
           operation: e.operation,
-          dureeHeures: e.dureeHeures || 1,
+          dureeHeures: Math.round((e.dureeHeures || 1) * quantity * 100) / 100,
           tauxHoraire: e.tauxHoraire || 35
         }));
 
@@ -180,7 +184,7 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
 
         toast({
           title: 'Suggestions IA appliquées',
-          description: `${composants.length} composants, ${matieresPremières.length} matières, ${etapesProduction.length} étapes ajoutés`,
+          description: `${composants.length} composants, ${matieresPremières.length} matières, ${etapesProduction.length} étapes ajoutés (pour ${quantity} unités)`,
         });
       }
     } catch (error) {

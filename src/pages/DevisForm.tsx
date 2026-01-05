@@ -232,8 +232,9 @@ export default function DevisForm() {
 
       if (data?.suggestions) {
         const updated = [...formData.matieresPremières];
-        if (data.suggestions.prixKg) {
-          updated[index].prixKg = data.suggestions.prixKg;
+        const prixKg = data.suggestions.prixKg;
+        if (prixKg !== undefined && prixKg !== null) {
+          updated[index].prixKg = prixKg;
         }
         if (data.suggestions.fournisseur) {
           updated[index].fournisseur = data.suggestions.fournisseur;
@@ -242,7 +243,11 @@ export default function DevisForm() {
           updated[index].url = data.suggestions.url;
         }
         setFormData(prev => ({ ...prev, matieresPremières: updated }));
-        toast({ title: 'Prix mis à jour', description: `Prix trouvé: ${data.suggestions.prixKg}€/kg` });
+        
+        const displayPrice = prixKg !== undefined && prixKg !== null ? `${prixKg}€/kg` : 'Non trouvé';
+        toast({ title: 'Recherche terminée', description: `Prix: ${displayPrice}` });
+      } else {
+        toast({ title: 'Aucun résultat', description: 'Aucune information trouvée pour cette matière', variant: 'destructive' });
       }
     } catch (error) {
       console.error('AI search error:', error);
