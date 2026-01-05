@@ -16,7 +16,7 @@ export function AppSidebar() {
   const { signOut, user } = useAuth();
 
   return (
-    <aside className="w-64 bg-sidebar min-h-screen flex flex-col">
+    <aside className="w-64 bg-sidebar h-screen flex flex-col sticky top-0">
       <div className="p-6 border-b border-sidebar-border">
         <img src={majiLogo} alt="Maji" className="h-8 mb-2" />
         <p className="text-xs text-sidebar-foreground/60">Maji Devis</p>
