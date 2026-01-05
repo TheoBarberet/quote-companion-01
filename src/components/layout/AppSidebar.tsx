@@ -13,7 +13,7 @@ const navigation = [
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
 
   return (
     <aside className="w-64 bg-sidebar min-h-screen flex flex-col">
@@ -41,11 +41,12 @@ export function AppSidebar() {
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-9 h-9 rounded-full bg-sidebar-accent flex items-center justify-center">
-            <span className="text-sm font-medium text-sidebar-foreground">JD</span>
+            <span className="text-sm font-medium text-sidebar-foreground">
+              {user?.email ? user.email.substring(0, 2).toUpperCase() : '??'}
+            </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">Jean Dupont</p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">Deviseur</p>
+            <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.email || 'Non connecté'}</p>
           </div>
         </div>
 
