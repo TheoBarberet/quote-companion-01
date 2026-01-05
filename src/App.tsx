@@ -11,6 +11,7 @@ import DevisForm from "./pages/DevisForm";
 import DevisSummary from "./pages/DevisSummary";
 import Clients from "./pages/Clients";
 import Products from "./pages/Products";
+import EtapesProduction from "./pages/EtapesProduction";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "@/contexts/auth";
@@ -51,6 +52,14 @@ const App = () => (
               element={
                 <RequireAuth>
                   <Products />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/etapes-production"
+              element={
+                <RequireAuth>
+                  <EtapesProduction />
                 </RequireAuth>
               }
             />
