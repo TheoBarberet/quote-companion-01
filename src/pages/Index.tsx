@@ -1,14 +1,11 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/auth';
 
 const Index = () => {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    navigate('/login');
-  }, [navigate]);
-
-  return null;
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return <Navigate to={user ? '/dashboard' : '/auth'} replace />;
 };
 
 export default Index;
+
