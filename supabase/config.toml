@@ -1,1 +1,4 @@
 project_id = "pvsxhcmsyqdgpgtoboqb"
+
+[functions.ai-product-suggestions]
+verify_jwt = true

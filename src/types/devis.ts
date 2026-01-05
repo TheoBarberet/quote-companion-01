@@ -24,13 +24,21 @@ export interface Composant {
   fournisseur: string;
   prixUnitaire: number;
   quantite: number;
+  url?: string;
 }
 
 export interface MatierePremiere {
   id: string;
   type: string;
+  fournisseur?: string;
   prixKg: number;
   quantiteKg: number;
+  url?: string;
+}
+
+export interface TransportInfo {
+  societe: string;
+  coutKm: number;
 }
 
 export interface EtapeProduction {
@@ -45,6 +53,7 @@ export interface Transport {
   distance: number;
   volume: number;
   cout: number;
+  info?: TransportInfo;
 }
 
 export interface Marges {

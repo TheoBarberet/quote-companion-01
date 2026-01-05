@@ -6,10 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Devis } from '@/types/devis';
+import type { Devis, Composant, MatierePremiere } from '@/types/devis';
 import { addDevis, getDevisById, updateDevis } from '@/data/devisStore';
 import { ensureProductFromDevis } from '@/data/productsStore';
 import { addClient } from '@/data/clientsStore';
+import { calculateTransportCost } from '@/data/transportData';
+import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft,
   Save,
@@ -23,6 +25,9 @@ import {
   Factory,
   Truck,
   TrendingUp,
+  ExternalLink,
+  Loader2,
+  Calculator,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExcelImportButton } from '@/components/devis/ExcelImportButton';
@@ -49,13 +54,16 @@ export default function DevisForm() {
   const [formData, setFormData] = useState({
     client: prefilledClient || draftDevis?.client || { id: '', reference: '', nom: '', adresse: '', email: '', telephone: '' },
     produit: draftDevis?.produit || { id: '', reference: '', designation: '', quantite: 0, variantes: '' },
-    composants: draftDevis?.composants || [],
-    matieresPremières: draftDevis?.matieresPremières || [],
+    composants: draftDevis?.composants || [] as Composant[],
+    matieresPremières: draftDevis?.matieresPremières || [] as MatierePremiere[],
     etapesProduction: draftDevis?.etapesProduction || [],
-    transport: draftDevis?.transport || { mode: 'Routier', distance: 0, volume: 0, cout: 0 },
+    transport: draftDevis?.transport || { mode: 'Routier', distance: 0, volume: 0, cout: 0, info: undefined },
     marges: draftDevis?.marges || { margeCible: 25, prixVenteSouhaite: 0 },
     notes: draftDevis?.notes || '',
   });
+
+  const [loadingAI, setLoadingAI] = useState<{ type: 'component' | 'material'; index: number } | null>(null);
+  const [calculatingTransport, setCalculatingTransport] = useState(false);
 
   useEffect(() => {
     if (isEditing && id) {
@@ -158,14 +166,14 @@ export default function DevisForm() {
   const addComposant = () => {
     setFormData(prev => ({
       ...prev,
-      composants: [...prev.composants, { id: Date.now().toString(), reference: '', designation: '', fournisseur: '', prixUnitaire: 0, quantite: 0 }]
+      composants: [...prev.composants, { id: Date.now().toString(), reference: '', designation: '', fournisseur: '', prixUnitaire: 0, quantite: 0, url: '' }]
     }));
   };
 
   const addMatiere = () => {
     setFormData(prev => ({
       ...prev,
-      matieresPremières: [...prev.matieresPremières, { id: Date.now().toString(), type: '', prixKg: 0, quantiteKg: 0 }]
+      matieresPremières: [...prev.matieresPremières, { id: Date.now().toString(), type: '', fournisseur: '', prixKg: 0, quantiteKg: 0, url: '' }]
     }));
   };
 
@@ -174,6 +182,110 @@ export default function DevisForm() {
       ...prev,
       etapesProduction: [...prev.etapesProduction, { id: Date.now().toString(), operation: '', dureeHeures: 0, tauxHoraire: 0 }]
     }));
+  };
+
+  const searchComponentPrice = async (index: number) => {
+    const comp = formData.composants[index];
+    if (!comp.designation.trim()) return;
+
+    setLoadingAI({ type: 'component', index });
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-suggestions', {
+        body: { itemName: comp.designation, type: 'component' }
+      });
+
+      if (error) throw error;
+
+      if (data?.suggestions) {
+        const updated = [...formData.composants];
+        if (data.suggestions.prixUnitaire) {
+          updated[index].prixUnitaire = data.suggestions.prixUnitaire;
+        }
+        if (data.suggestions.fournisseur) {
+          updated[index].fournisseur = data.suggestions.fournisseur;
+        }
+        if (data.suggestions.url) {
+          updated[index].url = data.suggestions.url;
+        }
+        setFormData(prev => ({ ...prev, composants: updated }));
+        toast({ title: 'Prix mis à jour', description: `Prix trouvé: ${data.suggestions.prixUnitaire}€` });
+      }
+    } catch (error) {
+      console.error('AI search error:', error);
+      toast({ title: 'Erreur', description: 'Impossible de rechercher le prix', variant: 'destructive' });
+    } finally {
+      setLoadingAI(null);
+    }
+  };
+
+  const searchMaterialPrice = async (index: number) => {
+    const mat = formData.matieresPremières[index];
+    if (!mat.type.trim()) return;
+
+    setLoadingAI({ type: 'material', index });
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-suggestions', {
+        body: { itemName: mat.type, type: 'material' }
+      });
+
+      if (error) throw error;
+
+      if (data?.suggestions) {
+        const updated = [...formData.matieresPremières];
+        if (data.suggestions.prixKg) {
+          updated[index].prixKg = data.suggestions.prixKg;
+        }
+        if (data.suggestions.fournisseur) {
+          updated[index].fournisseur = data.suggestions.fournisseur;
+        }
+        if (data.suggestions.url) {
+          updated[index].url = data.suggestions.url;
+        }
+        setFormData(prev => ({ ...prev, matieresPremières: updated }));
+        toast({ title: 'Prix mis à jour', description: `Prix trouvé: ${data.suggestions.prixKg}€/kg` });
+      }
+    } catch (error) {
+      console.error('AI search error:', error);
+      toast({ title: 'Erreur', description: 'Impossible de rechercher le prix', variant: 'destructive' });
+    } finally {
+      setLoadingAI(null);
+    }
+  };
+
+  const handleCalculateTransport = () => {
+    setCalculatingTransport(true);
+    
+    const result = calculateTransportCost(
+      formData.transport.mode,
+      formData.transport.distance,
+      formData.transport.volume
+    );
+
+    if (result) {
+      setFormData(prev => ({
+        ...prev,
+        transport: {
+          ...prev.transport,
+          cout: result.cout,
+          info: {
+            societe: result.societe,
+            coutKm: result.coutKm
+          }
+        }
+      }));
+      toast({ 
+        title: 'Coût calculé', 
+        description: `Transport: ${result.cout.toFixed(2)}€ via ${result.societe}` 
+      });
+    } else {
+      toast({ 
+        title: 'Calcul impossible', 
+        description: 'Aucun tarif trouvé pour ces paramètres',
+        variant: 'destructive'
+      });
+    }
+    
+    setCalculatingTransport(false);
   };
 
   const removeItem = (type: 'composants' | 'matieresPremières' | 'etapesProduction', itemId: string) => {
@@ -221,10 +333,6 @@ export default function DevisForm() {
               }));
             }}
           />
-          <Button variant="outline" className="gap-2">
-            <Sparkles className="w-4 h-4" />
-            Suggestions IA
-          </Button>
           <Button onClick={() => handleSave(coutRevient)}>
             <Save className="w-4 h-4 mr-2" />
             Enregistrer
@@ -291,73 +399,98 @@ export default function DevisForm() {
               ) : (
                 <div className="space-y-3">
                   {formData.composants.map((comp, idx) => (
-                    <div key={comp.id} className="grid grid-cols-6 gap-2 items-end p-3 bg-muted/30 rounded-lg">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Référence</Label>
-                        <Input 
-                          value={comp.reference}
-                          onChange={(e) => {
-                            const updated = [...formData.composants];
-                            updated[idx].reference = e.target.value;
-                            setFormData(prev => ({ ...prev, composants: updated }));
-                          }}
-                          className="h-9"
-                        />
+                    <div key={comp.id} className="p-3 bg-muted/30 rounded-lg space-y-2">
+                      <div className="grid grid-cols-6 gap-2 items-end">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Référence</Label>
+                          <Input 
+                            value={comp.reference}
+                            onChange={(e) => {
+                              const updated = [...formData.composants];
+                              updated[idx].reference = e.target.value;
+                              setFormData(prev => ({ ...prev, composants: updated }));
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Désignation</Label>
+                          <Input 
+                            value={comp.designation}
+                            onChange={(e) => {
+                              const updated = [...formData.composants];
+                              updated[idx].designation = e.target.value;
+                              setFormData(prev => ({ ...prev, composants: updated }));
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Fournisseur</Label>
+                          <Input 
+                            value={comp.fournisseur}
+                            onChange={(e) => {
+                              const updated = [...formData.composants];
+                              updated[idx].fournisseur = e.target.value;
+                              setFormData(prev => ({ ...prev, composants: updated }));
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Prix unit. (€)</Label>
+                          <Input 
+                            type="number"
+                            step="0.01"
+                            value={comp.prixUnitaire}
+                            onChange={(e) => {
+                              const updated = [...formData.composants];
+                              updated[idx].prixUnitaire = parseFloat(e.target.value) || 0;
+                              setFormData(prev => ({ ...prev, composants: updated }));
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Quantité</Label>
+                          <Input 
+                            type="number"
+                            value={comp.quantite}
+                            onChange={(e) => {
+                              const updated = [...formData.composants];
+                              updated[idx].quantite = parseInt(e.target.value) || 0;
+                              setFormData(prev => ({ ...prev, composants: updated }));
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="flex gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => searchComponentPrice(idx)}
+                            disabled={loadingAI?.type === 'component' && loadingAI.index === idx}
+                            title="Rechercher le prix via IA"
+                          >
+                            {loadingAI?.type === 'component' && loadingAI.index === idx ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                            ) : (
+                              <Sparkles className="w-4 h-4 text-primary" />
+                            )}
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => removeItem('composants', comp.id)}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Désignation</Label>
-                        <Input 
-                          value={comp.designation}
-                          onChange={(e) => {
-                            const updated = [...formData.composants];
-                            updated[idx].designation = e.target.value;
-                            setFormData(prev => ({ ...prev, composants: updated }));
-                          }}
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Fournisseur</Label>
-                        <Input 
-                          value={comp.fournisseur}
-                          onChange={(e) => {
-                            const updated = [...formData.composants];
-                            updated[idx].fournisseur = e.target.value;
-                            setFormData(prev => ({ ...prev, composants: updated }));
-                          }}
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Prix unit. (€)</Label>
-                        <Input 
-                          type="number"
-                          step="0.01"
-                          value={comp.prixUnitaire}
-                          onChange={(e) => {
-                            const updated = [...formData.composants];
-                            updated[idx].prixUnitaire = parseFloat(e.target.value) || 0;
-                            setFormData(prev => ({ ...prev, composants: updated }));
-                          }}
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Quantité</Label>
-                        <Input 
-                          type="number"
-                          value={comp.quantite}
-                          onChange={(e) => {
-                            const updated = [...formData.composants];
-                            updated[idx].quantite = parseInt(e.target.value) || 0;
-                            setFormData(prev => ({ ...prev, composants: updated }));
-                          }}
-                          className="h-9"
-                        />
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => removeItem('composants', comp.id)}>
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
+                      {comp.url && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <ExternalLink className="w-3 h-3" />
+                          <a href={comp.url} target="_blank" rel="noopener noreferrer" className="hover:text-primary truncate">
+                            {comp.url}
+                          </a>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -380,49 +513,86 @@ export default function DevisForm() {
               ) : (
                 <div className="space-y-3">
                   {formData.matieresPremières.map((mat, idx) => (
-                    <div key={mat.id} className="grid grid-cols-4 gap-2 items-end p-3 bg-muted/30 rounded-lg">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Type de matière</Label>
-                        <Input 
-                          value={mat.type}
-                          onChange={(e) => {
-                            const updated = [...formData.matieresPremières];
-                            updated[idx].type = e.target.value;
-                            setFormData(prev => ({ ...prev, matieresPremières: updated }));
-                          }}
-                          className="h-9"
-                        />
+                    <div key={mat.id} className="p-3 bg-muted/30 rounded-lg space-y-2">
+                      <div className="grid grid-cols-5 gap-2 items-end">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Type de matière</Label>
+                          <Input 
+                            value={mat.type}
+                            onChange={(e) => {
+                              const updated = [...formData.matieresPremières];
+                              updated[idx].type = e.target.value;
+                              setFormData(prev => ({ ...prev, matieresPremières: updated }));
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Fournisseur</Label>
+                          <Input 
+                            value={mat.fournisseur || ''}
+                            onChange={(e) => {
+                              const updated = [...formData.matieresPremières];
+                              updated[idx].fournisseur = e.target.value;
+                              setFormData(prev => ({ ...prev, matieresPremières: updated }));
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Prix / kg (€)</Label>
+                          <Input 
+                            type="number"
+                            step="0.01"
+                            value={mat.prixKg}
+                            onChange={(e) => {
+                              const updated = [...formData.matieresPremières];
+                              updated[idx].prixKg = parseFloat(e.target.value) || 0;
+                              setFormData(prev => ({ ...prev, matieresPremières: updated }));
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Quantité (kg)</Label>
+                          <Input 
+                            type="number"
+                            value={mat.quantiteKg}
+                            onChange={(e) => {
+                              const updated = [...formData.matieresPremières];
+                              updated[idx].quantiteKg = parseFloat(e.target.value) || 0;
+                              setFormData(prev => ({ ...prev, matieresPremières: updated }));
+                            }}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="flex gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => searchMaterialPrice(idx)}
+                            disabled={loadingAI?.type === 'material' && loadingAI.index === idx}
+                            title="Rechercher le prix via IA"
+                          >
+                            {loadingAI?.type === 'material' && loadingAI.index === idx ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                            ) : (
+                              <Sparkles className="w-4 h-4 text-primary" />
+                            )}
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => removeItem('matieresPremières', mat.id)}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Prix / kg (€)</Label>
-                        <Input 
-                          type="number"
-                          step="0.01"
-                          value={mat.prixKg}
-                          onChange={(e) => {
-                            const updated = [...formData.matieresPremières];
-                            updated[idx].prixKg = parseFloat(e.target.value) || 0;
-                            setFormData(prev => ({ ...prev, matieresPremières: updated }));
-                          }}
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Quantité (kg)</Label>
-                        <Input 
-                          type="number"
-                          value={mat.quantiteKg}
-                          onChange={(e) => {
-                            const updated = [...formData.matieresPremières];
-                            updated[idx].quantiteKg = parseFloat(e.target.value) || 0;
-                            setFormData(prev => ({ ...prev, matieresPremières: updated }));
-                          }}
-                          className="h-9"
-                        />
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => removeItem('matieresPremières', mat.id)}>
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
+                      {mat.url && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <ExternalLink className="w-3 h-3" />
+                          <a href={mat.url} target="_blank" rel="noopener noreferrer" className="hover:text-primary truncate">
+                            {mat.url}
+                          </a>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -504,14 +674,13 @@ export default function DevisForm() {
                   <Label>Mode de transport</Label>
                   <Select 
                     value={formData.transport.mode}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, transport: { ...prev.transport, mode: value }}))}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, transport: { ...prev.transport, mode: value, info: undefined }}))}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Routier">Routier</SelectItem>
-                      <SelectItem value="Maritime">Maritime</SelectItem>
                       <SelectItem value="Aérien">Aérien</SelectItem>
                       <SelectItem value="Ferroviaire">Ferroviaire</SelectItem>
                     </SelectContent>
@@ -522,7 +691,7 @@ export default function DevisForm() {
                   <Input 
                     type="number"
                     value={formData.transport.distance}
-                    onChange={(e) => setFormData(prev => ({ ...prev, transport: { ...prev.transport, distance: parseFloat(e.target.value) || 0 }}))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, transport: { ...prev.transport, distance: parseFloat(e.target.value) || 0, info: undefined }}))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -531,18 +700,48 @@ export default function DevisForm() {
                     type="number"
                     step="0.1"
                     value={formData.transport.volume}
-                    onChange={(e) => setFormData(prev => ({ ...prev, transport: { ...prev.transport, volume: parseFloat(e.target.value) || 0 }}))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, transport: { ...prev.transport, volume: parseFloat(e.target.value) || 0, info: undefined }}))}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Coût transport (€)</Label>
-                  <Input 
-                    type="number"
-                    value={formData.transport.cout}
-                    onChange={(e) => setFormData(prev => ({ ...prev, transport: { ...prev.transport, cout: parseFloat(e.target.value) || 0 }}))}
-                  />
+                  <div className="flex gap-2">
+                    <Input 
+                      type="number"
+                      value={formData.transport.cout}
+                      onChange={(e) => setFormData(prev => ({ ...prev, transport: { ...prev.transport, cout: parseFloat(e.target.value) || 0 }}))}
+                    />
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      size="icon"
+                      onClick={handleCalculateTransport}
+                      disabled={calculatingTransport || !formData.transport.distance || !formData.transport.volume}
+                      title="Calculer le coût du transport"
+                    >
+                      {calculatingTransport ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Calculator className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
+              {formData.transport.info && (
+                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                  <div className="flex gap-6 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Société : </span>
+                      <span className="font-medium">{formData.transport.info.societe}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Coût/km : </span>
+                      <span className="font-medium">{formData.transport.info.coutKm.toFixed(2)} €</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Marges */}

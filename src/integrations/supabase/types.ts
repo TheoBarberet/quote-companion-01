@@ -73,6 +73,7 @@ export type Database = {
           reference: string
           status: string
           transport: Json | null
+          transport_info: Json | null
           updated_at: string
           user_id: string
         }
@@ -98,6 +99,7 @@ export type Database = {
           reference: string
           status?: string
           transport?: Json | null
+          transport_info?: Json | null
           updated_at?: string
           user_id: string
         }
@@ -123,6 +125,7 @@ export type Database = {
           reference?: string
           status?: string
           transport?: Json | null
+          transport_info?: Json | null
           updated_at?: string
           user_id?: string
         }
