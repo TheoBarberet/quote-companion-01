@@ -118,16 +118,16 @@ export function calculateTransportCost(
 
   if (modeTarifs.length === 0) return null;
 
-  // Find the best matching tarif based on distance and volume
+  // Find the best matching tarif based on distance and volume limits
   let bestTarif: TransportTarif | null = null;
 
   for (const tarif of modeTarifs) {
-    const inRange =
+    const inDistanceRange =
       distance >= (tarif.distanceMin ?? 0) &&
-      distance <= (tarif.distanceMax ?? 9999);
+      distance <= (tarif.distanceMax ?? 99999);
     const volumeOk = volume <= tarif.volumeMax;
 
-    if (inRange && volumeOk) {
+    if (inDistanceRange && volumeOk) {
       // Prefer the cheapest option
       if (!bestTarif || tarif.tarifUnitaire < bestTarif.tarifUnitaire) {
         bestTarif = tarif;
@@ -135,31 +135,17 @@ export function calculateTransportCost(
     }
   }
 
-  // Fallback: if no exact match, pick the first available for the mode
+  // Fallback: if no exact match, find closest match by mode
   if (!bestTarif && modeTarifs.length > 0) {
-    bestTarif = modeTarifs[0];
+    // Find one that at least matches volume
+    bestTarif = modeTarifs.find(t => volume <= t.volumeMax) || modeTarifs[0];
   }
 
   if (!bestTarif) return null;
 
-  let cout: number;
+  // Simple calculation: always distance * cost per km
   const coutKm = bestTarif.tarifUnitaire;
-
-  switch (bestTarif.uniteFacturation) {
-    case '€/km':
-      cout = distance * coutKm;
-      break;
-    case '€/t-km':
-      // Assume volume in m³ ≈ weight in tonnes for plastics (density ~1)
-      cout = distance * volume * coutKm;
-      break;
-    case '€/kg ou €/m3':
-      // Use the volumetric weight (m³ * 1000 = kg equivalent for air freight)
-      cout = Math.max(volume * 1000, volume) * coutKm;
-      break;
-    default:
-      cout = distance * coutKm;
-  }
+  const cout = distance * coutKm;
 
   return {
     cout: Math.round(cout * 100) / 100,

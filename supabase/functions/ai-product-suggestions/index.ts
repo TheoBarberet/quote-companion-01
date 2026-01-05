@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { productDesignation, type, itemName } = await req.json();
+    const { productDesignation, type, itemName, quantity } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
@@ -23,9 +23,11 @@ serve(async (req) => {
 
     if (type === 'full') {
       // Full product suggestions
-      systemPrompt = `Tu es un expert en fabrication industrielle et approvisionnement pour les produits plastiques.
+      systemPrompt = `Tu es un expert en fabrication industrielle et approvisionnement pour les produits plastiques et électroniques.
 Tu dois analyser un produit et fournir des suggestions détaillées pour sa fabrication.
-Tu dois fournir des informations réalistes basées sur les prix du marché français.`;
+Tu dois fournir des informations réalistes basées sur les prix du marché français.
+IMPORTANT: Fournis les quantités pour UN SEUL produit. Les quantités seront multipliées côté client.
+IMPORTANT: Les URLs doivent être des liens EXACTS vers des pages produits réelles et vérifiables sur les sites des fournisseurs.`;
 
       userPrompt = `Pour le produit "${productDesignation}", fournis une analyse complète avec:
 
@@ -34,30 +36,38 @@ Tu dois fournir des informations réalistes basées sur les prix du marché fran
 3. Les étapes de production
 
 Pour chaque élément, inclus:
-- Une désignation claire
-- Un fournisseur suggéré (entreprise réelle française ou européenne)
-- Un prix unitaire estimé réaliste
-- Une quantité recommandée
-- Une URL vers le produit ou le fournisseur (si disponible)`;
+- Une désignation claire et précise
+- Une référence produit si applicable
+- Un fournisseur suggéré (entreprise réelle française ou européenne: RS Components, Farnell, Mouser, DigiKey, etc.)
+- Un prix unitaire estimé réaliste en euros
+- Une quantité recommandée POUR UN SEUL PRODUIT
+- Une URL EXACTE vers la page produit chez le fournisseur (pas juste le site principal)
+
+Les URLs doivent pointer directement vers le produit, par exemple:
+- https://fr.rs-online.com/web/p/produit/1234567
+- https://fr.farnell.com/productimages/standard/fr_FR/1234567.html
+- https://www.mouser.fr/ProductDetail/fabricant/reference`;
     } else if (type === 'component') {
       systemPrompt = `Tu es un expert en sourcing de composants industriels.
 Tu dois rechercher des informations de prix pour un composant spécifique.
-Fournis des informations réalistes basées sur les prix du marché.`;
+Fournis des informations réalistes basées sur les prix du marché.
+IMPORTANT: L'URL doit être un lien EXACT vers la page produit, pas juste vers le site du fournisseur.`;
 
       userPrompt = `Recherche le prix actuel du composant "${itemName}".
 Trouve:
-- Le prix unitaire moyen en euros
-- Un ou plusieurs fournisseurs recommandés
-- Une URL vers le produit chez un fournisseur`;
+- Le prix unitaire moyen en euros (prixUnitaire)
+- Un fournisseur recommandé (RS Components, Farnell, Mouser, DigiKey, etc.)
+- Une URL EXACTE vers la page produit chez ce fournisseur`;
     } else if (type === 'material') {
       systemPrompt = `Tu es un expert en approvisionnement de matières premières industrielles.
 Tu dois rechercher des informations de prix pour une matière première spécifique.
-Fournis des informations réalistes basées sur les prix du marché.`;
+Fournis des informations réalistes basées sur les prix du marché.
+IMPORTANT: Tu DOIS obligatoirement fournir un prix au kg (prixKg) même si c'est une estimation.`;
 
       userPrompt = `Recherche le prix actuel de la matière première "${itemName}".
-Trouve:
-- Le prix au kg en euros
-- Un ou plusieurs fournisseurs recommandés
+Trouve obligatoirement:
+- Le prix au kg en euros (prixKg) - OBLIGATOIRE, donne une estimation si nécessaire
+- Un fournisseur recommandé
 - Une URL vers le fournisseur ou la fiche produit`;
     }
 
