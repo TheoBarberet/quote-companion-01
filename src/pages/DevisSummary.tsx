@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -23,8 +24,19 @@ export default function DevisSummary() {
   const { toast } = useToast();
 
   const draftDevis = location.state?.draftDevis as Devis | undefined;
-  const devis = draftDevis ?? (id ? getDevisById(id) : null);
   const isDraft = id === 'new' || Boolean(draftDevis && id === 'new');
+
+  const [devis, setDevis] = useState<Devis | null>(draftDevis || null);
+  const [loading, setLoading] = useState(!draftDevis && !!id && id !== 'new');
+
+  useEffect(() => {
+    if (!draftDevis && id && id !== 'new') {
+      getDevisById(id).then((data) => {
+        setDevis(data);
+        setLoading(false);
+      });
+    }
+  }, [id, draftDevis]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('fr-FR', {
@@ -40,14 +52,14 @@ export default function DevisSummary() {
     });
   };
 
-  const handleValidate = () => {
+  const handleValidate = async () => {
     if (!devis) return;
 
     // Si on vient de /devis/new/summary : on crée réellement le devis au moment de la validation
     if (id === 'new') {
       ensureProductTemplateFromDevis(devis);
 
-      const created = addDevis({
+      const created = await addDevis({
         status: 'validated',
         creePar: devis.creePar,
         client: devis.client,
@@ -65,7 +77,7 @@ export default function DevisSummary() {
 
       toast({
         title: 'Devis validé',
-        description: `Le devis ${created.reference} a été créé et envoyé.`,
+        description: `Le devis ${created?.reference || ''} a été créé et envoyé.`,
       });
       navigate('/dashboard');
       return;
@@ -73,7 +85,7 @@ export default function DevisSummary() {
 
     // Devis existant : on le passe en validé
     ensureProductTemplateFromDevis(devis);
-    updateDevis(devis.id, {
+    await updateDevis(devis.id, {
       status: 'validated',
       creePar: devis.creePar,
       client: devis.client,
@@ -95,6 +107,16 @@ export default function DevisSummary() {
     });
     navigate('/dashboard');
   };
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="p-8 animate-fade-in">
+          <p className="text-muted-foreground">Chargement...</p>
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (!devis) {
     return (
@@ -122,7 +144,7 @@ export default function DevisSummary() {
             size="sm"
             onClick={() =>
               navigate(isDraft ? '/devis/new' : `/devis/${id}/edit`, {
-                state: isDraft ? { draftDevis } : undefined,
+                state: isDraft ? { draftDevis: devis } : undefined,
               })
             }
           >
@@ -139,7 +161,7 @@ export default function DevisSummary() {
             variant="outline"
             onClick={() =>
               navigate(isDraft ? '/devis/new' : `/devis/${id}/edit`, {
-                state: isDraft ? { draftDevis } : undefined,
+                state: isDraft ? { draftDevis: devis } : undefined,
               })
             }
           >

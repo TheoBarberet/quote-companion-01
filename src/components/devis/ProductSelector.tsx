@@ -8,10 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Produit, Composant, MatierePremiere, EtapeProduction } from '@/types/devis';
-import { getProducts, subscribeProducts } from '@/data/productsStore';
-
-// Les produits disponibles sont stockés dans un store partagé (comme clientsStore).
+import { Composant, MatierePremiere, EtapeProduction } from '@/types/devis';
+import { getProducts, subscribeProducts, ProductTemplate } from '@/data/productsStore';
 
 interface ProductSelectorProps {
   selectedProduct: { reference: string; designation: string; quantite: number; variantes?: string };
@@ -23,7 +21,6 @@ interface ProductSelectorProps {
   }) => void;
 }
 
-// Stocke les données de base (pour 1 unité) pour le calcul proportionnel
 interface BaseProductData {
   composants: Omit<Composant, 'id'>[];
   matieresPremières: Omit<MatierePremiere, 'id'>[];
@@ -33,14 +30,18 @@ interface BaseProductData {
 export function ProductSelector({ selectedProduct, onProductChange }: ProductSelectorProps) {
   const [isNewProduct, setIsNewProduct] = useState(!selectedProduct.reference);
   const [baseData, setBaseData] = useState<BaseProductData | null>(null);
-  const [products, setProducts] = useState(getProducts);
+  const [products, setProducts] = useState<ProductTemplate[]>([]);
 
   useEffect(() => {
-    const unsubscribe = subscribeProducts(() => setProducts(getProducts()));
+    // Initial fetch
+    setProducts(getProducts());
+    // Subscribe to changes
+    const unsubscribe = subscribeProducts(() => {
+      setProducts(getProducts());
+    });
     return unsubscribe;
   }, []);
 
-  // Fonction pour mettre à l'échelle les données selon la quantité
   const scaleDataByQuantity = (base: BaseProductData, quantity: number) => {
     const composantsWithIds = base.composants.map((c, i) => ({
       ...c,
@@ -76,14 +77,12 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
     setIsNewProduct(false);
     const found = products.find(p => p.produit.reference === reference);
     if (found) {
-      // Stocke les données de base pour 1 unité
       setBaseData({
         composants: found.composants,
         matieresPremières: found.matieresPremières,
         etapesProduction: found.etapesProduction
       });
 
-      // Quantité par défaut à 1
       const quantity = 1;
       const { composantsWithIds, matieresWithIds, etapesWithIds } = scaleDataByQuantity({
         composants: found.composants,
@@ -107,7 +106,6 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
 
   const handleQuantityChange = (newQuantity: number) => {
     if (baseData && !isNewProduct) {
-      // Recalcule les quantités proportionnellement
       const { composantsWithIds, matieresWithIds, etapesWithIds } = scaleDataByQuantity(baseData, newQuantity);
       onProductChange({
         produit: { ...selectedProduct, quantite: newQuantity },
@@ -116,7 +114,6 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
         etapesProduction: etapesWithIds
       });
     } else {
-      // Nouveau produit : pas de données à mettre à l'échelle
       onProductChange({
         produit: { ...selectedProduct, quantite: newQuantity },
         composants: [],

@@ -5,17 +5,18 @@ import { DevisTable } from '@/components/devis/DevisTable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getDevis, subscribeDevis } from '@/data/devisStore';
+import { subscribeDevis } from '@/data/devisStore';
+import type { Devis } from '@/types/devis';
 import { Plus, Search, FileText, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [devis, setDevis] = useState(getDevis);
+  const [devis, setDevis] = useState<Devis[]>([]);
 
   useEffect(() => {
-    const unsubscribe = subscribeDevis(() => setDevis(getDevis()));
+    const unsubscribe = subscribeDevis(setDevis);
     return unsubscribe;
   }, []);
 

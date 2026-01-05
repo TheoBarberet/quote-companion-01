@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/popover';
 import { Check, ChevronsUpDown, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getClients, subscribe, type Client } from '@/data/clientsStore';
+import { subscribeClients, type Client } from '@/data/clientsStore';
 
 interface ClientSelectorProps {
   selectedClient: {
@@ -33,13 +33,11 @@ interface ClientSelectorProps {
 export function ClientSelector({ selectedClient, onClientChange }: ClientSelectorProps) {
   const [open, setOpen] = useState(false);
   const [isNewClient, setIsNewClient] = useState(!selectedClient.reference);
-  const [clients, setClients] = useState<Client[]>(getClients);
+  const [clients, setClients] = useState<Client[]>([]);
 
   // S'abonner aux changements du store
   useEffect(() => {
-    const unsubscribe = subscribe(() => {
-      setClients(getClients());
-    });
+    const unsubscribe = subscribeClients(setClients);
     return unsubscribe;
   }, []);
 
