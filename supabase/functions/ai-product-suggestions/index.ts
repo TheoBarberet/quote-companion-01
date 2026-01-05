@@ -5,6 +5,40 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+
+async function tryFetchOk(url: string, method: 'HEAD' | 'GET') {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3500);
+  try {
+    const res = await fetch(url, { method, redirect: 'follow', signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function verifyUrl(url: unknown): Promise<string> {
+  const raw = typeof url === 'string' ? url.trim() : '';
+  if (!raw) return '';
+  if (!/^https?:\/\//i.test(raw)) return '';
+
+  try {
+    const head = await tryFetchOk(raw, 'HEAD');
+    if (head.ok) return head.url || raw;
+  } catch {
+    // ignore
+  }
+
+  try {
+    const get = await tryFetchOk(raw, 'GET');
+    if (get.ok) return get.url || raw;
+  } catch {
+    // ignore
+  }
+
+  return '';
+}
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -23,30 +57,29 @@ serve(async (req) => {
 
     if (type === 'full') {
       // Full product suggestions
-      systemPrompt = `Tu es un expert en fabrication industrielle et approvisionnement pour les produits plastiques et électroniques.
-Tu dois analyser un produit et fournir des suggestions détaillées pour sa fabrication.
-Tu dois fournir des informations réalistes basées sur les prix du marché français.
-IMPORTANT: Fournis les quantités pour UN SEUL produit. Les quantités seront multipliées côté client.
-IMPORTANT: Les URLs doivent être des liens EXACTS vers des pages produits réelles et vérifiables sur les sites des fournisseurs.`;
+      const lotQuantity = Math.max(1, Number(quantity) || 1);
 
-      userPrompt = `Pour le produit "${productDesignation}", fournis une analyse complète avec:
+      systemPrompt = `Tu es un expert en fabrication industrielle et approvisionnement (marché FR/EU).
+Tu dois analyser un produit et proposer:
+- composants
+- matières premières
+- étapes de production
 
-1. Les composants nécessaires (électroniques, mécaniques, etc.)
-2. Les matières premières (plastiques, métaux, etc.)  
-3. Les étapes de production
+Règles CRITIQUES:
+1) Composants & matières premières: donne les quantités PAR UNITÉ (1 produit). Le client multipliera ensuite.
+2) Étapes de production: donne dureeHeures pour le LOT COMPLET de ${lotQuantity} unités (incluant réglages + série + contrôle). NE DONNE PAS une durée par unité.
+3) Réalisme: évite les durées/coûts absurdes.
+4) URLs: ne fournis une URL que si tu es sûr qu'elle pointe vers une page produit réelle. Sinon mets url="".`;
 
-Pour chaque élément, inclus:
-- Une désignation claire et précise
-- Une référence produit si applicable
-- Un fournisseur suggéré (entreprise réelle française ou européenne: RS Components, Farnell, Mouser, DigiKey, etc.)
-- Un prix unitaire estimé réaliste en euros
-- Une quantité recommandée POUR UN SEUL PRODUIT
-- Une URL EXACTE vers la page produit chez le fournisseur (pas juste le site principal)
+      userPrompt = `Produit: "${productDesignation}"
+Quantité du lot: ${lotQuantity}
 
-Les URLs doivent pointer directement vers le produit, par exemple:
-- https://fr.rs-online.com/web/p/produit/1234567
-- https://fr.farnell.com/productimages/standard/fr_FR/1234567.html
-- https://www.mouser.fr/ProductDetail/fabricant/reference`;
+Donne:
+1) Composants (designation, reference, fournisseur, prixUnitaire €, quantite par unité, url)
+2) Matières premières (type, fournisseur, prixKg €, quantiteKg par unité, url)
+3) Étapes de production (operation, dureeHeures pour le lot complet, tauxHoraire €)
+
+IMPORTANT: Prix plausibles (ordre de grandeur réaliste).`;
     } else if (type === 'component') {
       systemPrompt = `Tu es un expert en sourcing de composants industriels.
 Tu dois rechercher des informations de prix pour un composant spécifique.
@@ -96,29 +129,29 @@ Trouve obligatoirement:
                     type: 'array',
                     items: {
                       type: 'object',
-                      properties: {
-                        reference: { type: 'string' },
-                        designation: { type: 'string' },
-                        fournisseur: { type: 'string' },
-                        prixUnitaire: { type: 'number' },
-                        quantite: { type: 'number' },
-                        url: { type: 'string' },
-                      },
-                      required: ['designation', 'fournisseur', 'prixUnitaire', 'quantite'],
+                        properties: {
+                          reference: { type: 'string' },
+                          designation: { type: 'string' },
+                          fournisseur: { type: 'string' },
+                          prixUnitaire: { type: 'number' },
+                          quantite: { type: 'number' },
+                          url: { type: 'string' },
+                        },
+                        required: ['reference', 'designation', 'fournisseur', 'prixUnitaire', 'quantite', 'url'],
                     },
                   },
                   matieresPremières: {
                     type: 'array',
                     items: {
                       type: 'object',
-                      properties: {
-                        type: { type: 'string' },
-                        fournisseur: { type: 'string' },
-                        prixKg: { type: 'number' },
-                        quantiteKg: { type: 'number' },
-                        url: { type: 'string' },
-                      },
-                      required: ['type', 'prixKg', 'quantiteKg'],
+                        properties: {
+                          type: { type: 'string' },
+                          fournisseur: { type: 'string' },
+                          prixKg: { type: 'number' },
+                          quantiteKg: { type: 'number' },
+                          url: { type: 'string' },
+                        },
+                        required: ['type', 'fournisseur', 'prixKg', 'quantiteKg', 'url'],
                     },
                   },
                   etapesProduction: {
@@ -172,13 +205,50 @@ Trouve obligatoirement:
     // Extract tool call result
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
-      const suggestions = JSON.parse(toolCall.function.arguments);
+      const rawSuggestions = JSON.parse(toolCall.function.arguments);
+
+      // Normalisation + garde-fous + vérification d'URL (on préfère vide plutôt que faux)
+      const suggestions: any = { ...rawSuggestions };
+
+      if (Array.isArray(suggestions.composants)) {
+        suggestions.composants = await Promise.all(
+          suggestions.composants.map(async (c: any) => ({
+            ...c,
+            prixUnitaire: clamp(Number(c.prixUnitaire) || 0, 0, 1_000),
+            quantite: clamp(Number(c.quantite) || 0, 0, 10_000),
+            url: await verifyUrl(c.url),
+          }))
+        );
+      }
+
+      if (Array.isArray(suggestions.matieresPremières)) {
+        suggestions.matieresPremières = await Promise.all(
+          suggestions.matieresPremières.map(async (m: any) => ({
+            ...m,
+            prixKg: clamp(Number(m.prixKg) || 0, 0, 500),
+            quantiteKg: clamp(Number(m.quantiteKg) || 0, 0, 10_000),
+            url: await verifyUrl(m.url),
+          }))
+        );
+      }
+
+      if (Array.isArray(suggestions.etapesProduction)) {
+        suggestions.etapesProduction = suggestions.etapesProduction.map((e: any) => ({
+          ...e,
+          // durée pour le lot (pas par unité)
+          dureeHeures: clamp(Number(e.dureeHeures) || 0, 0, 80),
+          tauxHoraire: clamp(Number(e.tauxHoraire) || 0, 0, 150),
+        }));
+      }
+
+      // Cas "component" / "material" (structure plate)
+      if (suggestions.url) suggestions.url = await verifyUrl(suggestions.url);
+
       return new Response(
         JSON.stringify({ success: true, suggestions }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
     // Fallback to content if no tool call
     const content = data.choices?.[0]?.message?.content;
     return new Response(

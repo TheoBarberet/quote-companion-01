@@ -171,8 +171,9 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
         const etapesProduction: EtapeProduction[] = (suggestions.etapesProduction || []).map((e: any, i: number) => ({
           id: `etape-ai-${Date.now()}-${i}`,
           operation: e.operation,
-          dureeHeures: Math.round((e.dureeHeures || 1) * quantity * 100) / 100,
-          tauxHoraire: e.tauxHoraire || 35
+          // IMPORTANT: l'IA renvoie une durée pour le LOT (quantité totale), on ne la multiplie pas côté client.
+          dureeHeures: Math.round((Number(e.dureeHeures) || 0) * 100) / 100,
+          tauxHoraire: Number(e.tauxHoraire) || 35
         }));
 
         onProductChange({
