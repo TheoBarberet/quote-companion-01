@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Devis } from '@/types/devis';
 import { addDevis, getDevisById, updateDevis } from '@/data/devisStore';
+import { ensureProductTemplateFromDevis } from '@/data/productsStore';
 import {
   ArrowLeft,
   Save,
@@ -72,7 +73,11 @@ export default function DevisForm() {
       status: existingDevis?.status ?? 'pending',
       creePar: existingDevis?.creePar ?? 'Utilisateur',
       client: { ...formData.client, id: clientId },
-      produit: { ...formData.produit, id: produitId },
+      produit: {
+        ...formData.produit,
+        id: produitId,
+        quantite: Math.max(1, Number(formData.produit.quantite) || 1),
+      },
       composants: formData.composants,
       matieresPremières: formData.matieresPremières,
       etapesProduction: formData.etapesProduction,
@@ -83,6 +88,13 @@ export default function DevisForm() {
       margeReelle,
       notes: formData.notes,
     };
+
+    ensureProductTemplateFromDevis({
+      produit: payload.produit,
+      composants: payload.composants,
+      matieresPremières: payload.matieresPremières,
+      etapesProduction: payload.etapesProduction,
+    });
 
     if (existingDevis) {
       updateDevis(existingDevis.id, payload);
