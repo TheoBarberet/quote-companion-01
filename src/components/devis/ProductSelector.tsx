@@ -27,6 +27,7 @@ interface ProductSelectorProps {
     matieresPremières: MatierePremiere[];
     etapesProduction: EtapeProduction[];
   }) => void;
+  fieldErrors?: Set<string>;
 }
 
 interface BaseProductData {
@@ -42,7 +43,8 @@ export function ProductSelector({
   initialMatieres,
   initialEtapes,
   initialQuantite,
-  onProductChange 
+  onProductChange,
+  fieldErrors = new Set()
 }: ProductSelectorProps) {
   const [isNewProduct, setIsNewProduct] = useState(!selectedProduct.reference);
   const [baseData, setBaseData] = useState<BaseProductData | null>(null);
@@ -50,6 +52,10 @@ export function ProductSelector({
   const [products, setProducts] = useState<ProductTemplate[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const { toast } = useToast();
+
+  const getErrorClass = (fieldName: string) => {
+    return fieldErrors.has(fieldName) ? 'border-destructive ring-1 ring-destructive' : '';
+  };
 
   useEffect(() => {
     fetchProducts().then(setProducts);
@@ -266,6 +272,8 @@ export function ProductSelector({
             value={selectedProduct.quantite}
             onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
             placeholder="Quantité à produire"
+            className={getErrorClass('produit.quantite')}
+            data-error={fieldErrors.has('produit.quantite')}
           />
         </div>
       </div>
@@ -296,6 +304,8 @@ export function ProductSelector({
                 etapesProduction: []
               })}
               placeholder="Nom du produit"
+              className={getErrorClass('produit.designation')}
+              data-error={fieldErrors.has('produit.designation')}
             />
           </div>
           

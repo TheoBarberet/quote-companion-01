@@ -223,6 +223,93 @@ export default function DevisForm() {
     }
   }, [id, isEditing]);
 
+  // Clear field errors dynamically when data changes
+  useEffect(() => {
+    if (fieldErrors.size === 0) return;
+
+    const newErrors = new Set<string>();
+
+    // Check each error and keep only those that still apply
+    fieldErrors.forEach((fieldName) => {
+      let hasError = false;
+
+      switch (fieldName) {
+        case 'client.nom':
+          hasError = !formData.client.nom?.trim();
+          break;
+        case 'client.adresse':
+          hasError = !formData.client.adresse?.trim();
+          break;
+        case 'produit.designation':
+          hasError = !formData.produit.designation?.trim();
+          break;
+        case 'produit.quantite':
+          hasError = !formData.produit.quantite || formData.produit.quantite <= 0;
+          break;
+        case 'transport.distance':
+          hasError = !formData.transport.distance || formData.transport.distance <= 0;
+          break;
+        case 'transport.volume':
+          hasError = !formData.transport.volume || formData.transport.volume <= 0;
+          break;
+        case 'transport.cout':
+          hasError = !formData.transport.cout || formData.transport.cout <= 0;
+          break;
+        case 'marges.prixVenteSouhaite':
+          hasError = !formData.marges.prixVenteSouhaite || formData.marges.prixVenteSouhaite <= 0;
+          break;
+        default:
+          // Dynamic fields (composants, matieres, etapes)
+          if (fieldName.startsWith('composant.')) {
+            const parts = fieldName.split('.');
+            const idx = parseInt(parts[1]);
+            const field = parts[2];
+            const comp = formData.composants[idx];
+            if (comp) {
+              if (field === 'designation') hasError = !comp.designation?.trim();
+              else if (field === 'fournisseur') hasError = !comp.fournisseur?.trim();
+              else if (field === 'prixUnitaire') hasError = !comp.prixUnitaire || comp.prixUnitaire <= 0;
+              else if (field === 'quantite') hasError = !comp.quantite || comp.quantite <= 0;
+            }
+          } else if (fieldName.startsWith('matiere.')) {
+            const parts = fieldName.split('.');
+            const idx = parseInt(parts[1]);
+            const field = parts[2];
+            const mat = formData.matieresPremières[idx];
+            if (mat) {
+              if (field === 'type') hasError = !mat.type?.trim();
+              else if (field === 'fournisseur') hasError = !mat.fournisseur?.trim();
+              else if (field === 'prixKg') hasError = !mat.prixKg || mat.prixKg <= 0;
+              else if (field === 'quantiteKg') hasError = !mat.quantiteKg || mat.quantiteKg <= 0;
+            }
+          } else if (fieldName.startsWith('etape.')) {
+            const parts = fieldName.split('.');
+            const idx = parseInt(parts[1]);
+            const field = parts[2];
+            const etape = formData.etapesProduction[idx];
+            if (etape) {
+              if (field === 'operation') hasError = !etape.operation?.trim();
+              else if (field === 'dureeHeures') hasError = !etape.dureeHeures || etape.dureeHeures <= 0;
+              else if (field === 'tauxHoraire') hasError = !etape.tauxHoraire || etape.tauxHoraire <= 0;
+            }
+          }
+      }
+
+      if (hasError) {
+        newErrors.add(fieldName);
+      }
+    });
+
+    // Only update if there's a change
+    if (newErrors.size !== fieldErrors.size || ![...newErrors].every(e => fieldErrors.has(e))) {
+      setFieldErrors(newErrors);
+      // Also update validation errors list
+      if (newErrors.size === 0) {
+        setValidationErrors([]);
+      }
+    }
+  }, [formData]);
+
   const handleSave = async () => {
     // Valider le formulaire avant de sauvegarder
     const { errors, errorFields: newErrorFields } = validateForm();
@@ -523,6 +610,7 @@ export default function DevisForm() {
               <ClientSelector
                 selectedClient={formData.client}
                 onClientChange={(client) => setFormData(prev => ({ ...prev, client: { ...prev.client, ...client } }))}
+                fieldErrors={fieldErrors}
               />
               <div className="mt-4 space-y-2">
                 <Label>Adresse</Label>
@@ -558,6 +646,7 @@ export default function DevisForm() {
                     etapesProduction: data.etapesProduction.length > 0 ? data.etapesProduction : prev.etapesProduction
                   }));
                 }}
+                fieldErrors={fieldErrors}
               />
             </div>
 
@@ -817,6 +906,7 @@ export default function DevisForm() {
                             updated[idx].tauxHoraire = tauxHoraire;
                             setFormData(prev => ({ ...prev, etapesProduction: updated }));
                           }}
+                          hasError={fieldErrors.has(`etape.${idx}.operation`)}
                         />
                       </div>
                         <div className="space-y-1">
