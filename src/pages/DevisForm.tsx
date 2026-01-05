@@ -95,6 +95,9 @@ export default function DevisForm() {
       if (!comp.designation?.trim()) {
         errors.push(`Composant ${idx + 1} : la désignation est requise`);
       }
+      if (!comp.fournisseur?.trim()) {
+        errors.push(`Composant ${idx + 1} : le fournisseur est requis`);
+      }
       if (!comp.prixUnitaire || comp.prixUnitaire <= 0) {
         errors.push(`Composant ${idx + 1} : le prix unitaire doit être supérieur à 0`);
       }
@@ -107,6 +110,9 @@ export default function DevisForm() {
     formData.matieresPremières.forEach((mat, idx) => {
       if (!mat.type?.trim()) {
         errors.push(`Matière première ${idx + 1} : le type est requis`);
+      }
+      if (!mat.fournisseur?.trim()) {
+        errors.push(`Matière première ${idx + 1} : le fournisseur est requis`);
       }
       if (!mat.prixKg || mat.prixKg <= 0) {
         errors.push(`Matière première ${idx + 1} : le prix/kg doit être supérieur à 0`);
