@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Composant, MatierePremiere, EtapeProduction } from '@/types/devis';
-import { getProducts, subscribeProducts, ProductTemplate } from '@/data/productsStore';
+import { fetchProducts, subscribeProducts, ProductTemplate } from '@/data/productsStore';
 
 interface ProductSelectorProps {
   selectedProduct: { reference: string; designation: string; quantite: number; variantes?: string };
@@ -22,6 +22,7 @@ interface ProductSelectorProps {
 }
 
 interface BaseProductData {
+  quantiteOriginale: number;
   composants: Omit<Composant, 'id'>[];
   matieresPremières: Omit<MatierePremiere, 'id'>[];
   etapesProduction: Omit<EtapeProduction, 'id'>[];
@@ -33,30 +34,33 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
   const [products, setProducts] = useState<ProductTemplate[]>([]);
 
   useEffect(() => {
-    // Initial fetch
-    setProducts(getProducts());
+    // Fetch products from DB
+    fetchProducts().then(setProducts);
     // Subscribe to changes
     const unsubscribe = subscribeProducts(() => {
-      setProducts(getProducts());
+      fetchProducts().then(setProducts);
     });
     return unsubscribe;
   }, []);
 
-  const scaleDataByQuantity = (base: BaseProductData, quantity: number) => {
+  // Scale quantities based on ratio between new quantity and original quantity
+  const scaleDataByQuantity = (base: BaseProductData, newQuantity: number) => {
+    const ratio = newQuantity / base.quantiteOriginale;
+    
     const composantsWithIds = base.composants.map((c, i) => ({
       ...c,
       id: `comp-${Date.now()}-${i}`,
-      quantite: Math.round(c.quantite * quantity)
+      quantite: Math.round(c.quantite * ratio)
     }));
     const matieresWithIds = base.matieresPremières.map((m, i) => ({
       ...m,
       id: `mat-${Date.now()}-${i}`,
-      quantiteKg: Math.round(m.quantiteKg * quantity * 100) / 100
+      quantiteKg: Math.round(m.quantiteKg * ratio * 100) / 100
     }));
     const etapesWithIds = base.etapesProduction.map((e, i) => ({
       ...e,
       id: `etape-${Date.now()}-${i}`,
-      dureeHeures: Math.round(e.dureeHeures * quantity * 100) / 100
+      dureeHeures: Math.round(e.dureeHeures * ratio * 100) / 100
     }));
     return { composantsWithIds, matieresWithIds, etapesWithIds };
   };
@@ -75,27 +79,26 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
     }
 
     setIsNewProduct(false);
-    const found = products.find(p => p.produit.reference === reference);
+    const found = products.find(p => p.reference === reference);
     if (found) {
-      setBaseData({
+      const base: BaseProductData = {
+        quantiteOriginale: found.quantiteOriginale,
         composants: found.composants,
         matieresPremières: found.matieresPremières,
         etapesProduction: found.etapesProduction
-      });
+      };
+      setBaseData(base);
 
-      const quantity = 1;
-      const { composantsWithIds, matieresWithIds, etapesWithIds } = scaleDataByQuantity({
-        composants: found.composants,
-        matieresPremières: found.matieresPremières,
-        etapesProduction: found.etapesProduction
-      }, quantity);
+      // Use the original quantity stored in DB
+      const quantity = found.quantiteOriginale;
+      const { composantsWithIds, matieresWithIds, etapesWithIds } = scaleDataByQuantity(base, quantity);
 
       onProductChange({
         produit: {
-          reference: found.produit.reference,
-          designation: found.produit.designation,
+          reference: found.reference,
+          designation: found.designation,
           quantite: quantity,
-          variantes: found.produit.variantes
+          variantes: found.variantes
         },
         composants: composantsWithIds,
         matieresPremières: matieresWithIds,
@@ -138,8 +141,8 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
             <SelectContent className="bg-background border shadow-lg z-50">
               <SelectItem value="new">+ Nouveau produit</SelectItem>
               {products.map((p) => (
-                <SelectItem key={p.produit.reference} value={p.produit.reference}>
-                  {p.produit.reference} - {p.produit.designation}
+                <SelectItem key={p.reference} value={p.reference}>
+                  {p.reference} - {p.designation}
                 </SelectItem>
               ))}
             </SelectContent>

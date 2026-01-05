@@ -1,123 +1,100 @@
-import type { Devis, Produit, Composant, MatierePremiere, EtapeProduction } from '@/types/devis';
+import { supabase } from '@/integrations/supabase/client';
+import type { Composant, MatierePremiere, EtapeProduction } from '@/types/devis';
 
 export interface ProductTemplate {
-  produit: Omit<Produit, 'id' | 'quantite'>;
+  id: string;
+  reference: string;
+  designation: string;
+  variantes?: string;
+  quantiteOriginale: number; // Quantité enregistrée à la création
   composants: Omit<Composant, 'id'>[];
   matieresPremières: Omit<MatierePremiere, 'id'>[];
   etapesProduction: Omit<EtapeProduction, 'id'>[];
 }
 
-// Données initiales (démonstration)
-let products: ProductTemplate[] = [
-  {
-    produit: {
-      reference: 'PRD-2024-A1',
-      designation: 'Pièce mécanique type A',
-      variantes: 'Finition chromée',
-    },
-    composants: [
-      {
-        reference: 'VIS-M8',
-        designation: 'Vis M8x25',
-        fournisseur: 'Wurth',
-        prixUnitaire: 0.12,
-        quantite: 2000,
-      },
-      {
-        reference: 'ROUL-6205',
-        designation: 'Roulement 6205',
-        fournisseur: 'SKF',
-        prixUnitaire: 8.5,
-        quantite: 500,
-      },
-    ],
-    matieresPremières: [{ type: 'Acier S235', prixKg: 1.2, quantiteKg: 250 }],
-    etapesProduction: [
-      { operation: 'Découpe laser', dureeHeures: 8, tauxHoraire: 65 },
-      { operation: 'Usinage CNC', dureeHeures: 24, tauxHoraire: 85 },
-      { operation: 'Assemblage', dureeHeures: 16, tauxHoraire: 45 },
-    ],
-  },
-  {
-    produit: {
-      reference: 'PRD-2024-B2',
-      designation: 'Châssis soudé',
-      variantes: '',
-    },
-    composants: [
-      {
-        reference: 'TUBE-40x40',
-        designation: 'Tube carré 40x40',
-        fournisseur: 'ArcelorMittal',
-        prixUnitaire: 4.8,
-        quantite: 200,
-      },
-    ],
-    matieresPremières: [{ type: 'Acier galvanisé', prixKg: 1.85, quantiteKg: 800 }],
-    etapesProduction: [
-      { operation: 'Soudure MIG', dureeHeures: 40, tauxHoraire: 55 },
-      { operation: 'Contrôle qualité', dureeHeures: 8, tauxHoraire: 50 },
-    ],
-  },
-  {
-    produit: {
-      reference: 'PRD-2024-C3',
-      designation: 'Boîtier électronique',
-      variantes: 'Version IP65',
-    },
-    composants: [
-      {
-        reference: 'PCB-001',
-        designation: 'Circuit imprimé principal',
-        fournisseur: 'Eurocircuits',
-        prixUnitaire: 12.5,
-        quantite: 100,
-      },
-      {
-        reference: 'CONN-USB',
-        designation: 'Connecteur USB-C',
-        fournisseur: 'Molex',
-        prixUnitaire: 0.85,
-        quantite: 100,
-      },
-      {
-        reference: 'BOITIER-ABS',
-        designation: 'Boîtier ABS moulé',
-        fournisseur: 'Plastiform',
-        prixUnitaire: 3.2,
-        quantite: 100,
-      },
-    ],
-    matieresPremières: [
-      { type: 'ABS granulés', prixKg: 2.5, quantiteKg: 50 },
-      { type: 'Cuivre', prixKg: 8, quantiteKg: 10 },
-    ],
-    etapesProduction: [
-      { operation: 'Injection plastique', dureeHeures: 12, tauxHoraire: 70 },
-      { operation: 'Assemblage électronique', dureeHeures: 20, tauxHoraire: 55 },
-      { operation: 'Test fonctionnel', dureeHeures: 8, tauxHoraire: 45 },
-    ],
-  },
-];
-
 type Listener = () => void;
 const listeners: Set<Listener> = new Set();
+let cachedProducts: ProductTemplate[] = [];
 
 function notify() {
   listeners.forEach((l) => l());
 }
 
-export function getProducts(): ProductTemplate[] {
-  return [...products];
+export async function fetchProducts(): Promise<ProductTemplate[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Erreur chargement produits:', error);
+    return [];
+  }
+
+  cachedProducts = (data || []).map((p) => ({
+    id: p.id,
+    reference: p.reference,
+    designation: p.designation,
+    variantes: p.variantes || '',
+    quantiteOriginale: (p.composants as any)?.[0]?.quantiteOriginale || 1,
+    composants: ((p.composants as any[]) || []).map(({ quantiteOriginale, ...c }) => c),
+    matieresPremières: (p.matieres_premieres as any[]) || [],
+    etapesProduction: (p.etapes_production as any[]) || [],
+  }));
+
+  notify();
+  return cachedProducts;
 }
 
-export function addProductTemplate(template: ProductTemplate): ProductTemplate {
-  const exists = products.some((p) => p.produit.reference === template.produit.reference);
-  if (exists) return template;
+export function getProducts(): ProductTemplate[] {
+  return cachedProducts;
+}
 
-  products = [...products, template];
+export async function addProduct(product: Omit<ProductTemplate, 'id'>): Promise<ProductTemplate | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  // Stocker la quantité originale dans le premier composant pour la récupérer plus tard
+  const composantsWithOriginal = product.composants.map((c, i) => 
+    i === 0 ? { ...c, quantiteOriginale: product.quantiteOriginale } : c
+  );
+
+  const { data, error } = await supabase
+    .from('products')
+    .insert({
+      user_id: user.id,
+      reference: product.reference,
+      designation: product.designation,
+      variantes: product.variantes || null,
+      composants: composantsWithOriginal,
+      matieres_premieres: product.matieresPremières,
+      etapes_production: product.etapesProduction,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erreur création produit:', error);
+    return null;
+  }
+
+  const newProduct: ProductTemplate = {
+    id: data.id,
+    reference: data.reference,
+    designation: data.designation,
+    variantes: data.variantes || '',
+    quantiteOriginale: product.quantiteOriginale,
+    composants: product.composants,
+    matieresPremières: product.matieresPremières,
+    etapesProduction: product.etapesProduction,
+  };
+
+  cachedProducts = [newProduct, ...cachedProducts];
   notify();
-  return template;
+  return newProduct;
 }
 
 export function subscribeProducts(listener: Listener): () => void {
@@ -125,35 +102,40 @@ export function subscribeProducts(listener: Listener): () => void {
   return () => listeners.delete(listener);
 }
 
-export function ensureProductTemplateFromDevis(
-  devis: Pick<Devis, 'produit' | 'composants' | 'matieresPremières' | 'etapesProduction'>
-) {
+// Fonction pour créer un produit à partir d'un devis (si nouveau)
+export async function ensureProductFromDevis(devis: {
+  produit: { reference: string; designation: string; quantite: number; variantes?: string };
+  composants: Composant[];
+  matieresPremières: MatierePremiere[];
+  etapesProduction: EtapeProduction[];
+}): Promise<ProductTemplate | null> {
   const reference = devis.produit.reference?.trim();
   const designation = devis.produit.designation?.trim();
-  if (!reference || !designation) return;
+  if (!reference || !designation) return null;
 
-  if (products.some((p) => p.produit.reference === reference)) return;
+  // Vérifie si le produit existe déjà
+  const existing = cachedProducts.find((p) => p.reference === reference);
+  if (existing) return existing;
 
-  const q = Math.max(1, Number(devis.produit.quantite) || 1);
+  const quantite = Math.max(1, Number(devis.produit.quantite) || 1);
 
-  addProductTemplate({
-    produit: {
-      reference,
-      designation,
-      variantes: devis.produit.variantes ?? '',
-    },
-    // Normalise en « base 1 unité » pour garder le recalcul proportionnel
-    composants: devis.composants.map(({ id: _id, ...c }) => ({
-      ...c,
-      quantite: c.quantite / q,
-    })),
-    matieresPremières: devis.matieresPremières.map(({ id: _id, ...m }) => ({
-      ...m,
-      quantiteKg: m.quantiteKg / q,
-    })),
-    etapesProduction: devis.etapesProduction.map(({ id: _id, ...e }) => ({
-      ...e,
-      dureeHeures: e.dureeHeures / q,
-    })),
+  return addProduct({
+    reference,
+    designation,
+    variantes: devis.produit.variantes || '',
+    quantiteOriginale: quantite,
+    composants: devis.composants.map(({ id: _id, ...c }) => c),
+    matieresPremières: devis.matieresPremières.map(({ id: _id, ...m }) => m),
+    etapesProduction: devis.etapesProduction.map(({ id: _id, ...e }) => e),
   });
+}
+
+// Legacy compatibility
+export function ensureProductTemplateFromDevis(devis: {
+  produit: { reference: string; designation: string; quantite: number; variantes?: string };
+  composants: Composant[];
+  matieresPremières: MatierePremiere[];
+  etapesProduction: EtapeProduction[];
+}) {
+  ensureProductFromDevis(devis);
 }
