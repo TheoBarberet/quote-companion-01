@@ -29,51 +29,46 @@ export default function Settings() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Paramètres</h1>
-          <p className="text-muted-foreground">Gérez vos préférences et informations</p>
+      <div className="p-8 animate-fade-in">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Paramètres</h1>
+            <p className="text-muted-foreground mt-1">Gérez vos préférences et informations</p>
+          </div>
         </div>
 
         <div className="grid gap-6">
           {/* Profil utilisateur */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <User className="h-5 w-5 text-primary" />
-                <CardTitle>Profil utilisateur</CardTitle>
-              </div>
-              <CardDescription>Informations de votre compte</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={user?.email || ''}
-                  disabled
-                  className="bg-muted"
-                />
-                <p className="text-xs text-muted-foreground">
-                  L'email ne peut pas être modifié
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="section-card">
+            <div className="flex items-center gap-2 mb-4">
+              <User className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Profil utilisateur</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">Informations de votre compte</p>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={user?.email || ''}
+                disabled
+                className="bg-muted max-w-md"
+              />
+              <p className="text-xs text-muted-foreground">
+                L'email ne peut pas être modifié
+              </p>
+            </div>
+          </div>
 
           {/* Informations entreprise */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-primary" />
-                <CardTitle>Informations entreprise</CardTitle>
-              </div>
-              <CardDescription>
-                Ces informations apparaîtront sur vos devis
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="section-card">
+            <div className="flex items-center gap-2 mb-4">
+              <Building2 className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Informations entreprise</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">Ces informations apparaîtront sur vos devis</p>
+            <div className="space-y-4">
               <div className="grid gap-2">
                 <Label htmlFor="companyName">Nom de l'entreprise</Label>
                 <Input
@@ -81,6 +76,7 @@ export default function Settings() {
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Nom de votre entreprise"
+                  className="max-w-md"
                 />
               </div>
               <div className="grid gap-2">
@@ -90,9 +86,10 @@ export default function Settings() {
                   value={companyAddress}
                   onChange={(e) => setCompanyAddress(e.target.value)}
                   placeholder="Adresse complète"
+                  className="max-w-md"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 max-w-md">
                 <div className="grid gap-2">
                   <Label htmlFor="companySiret">SIRET</Label>
                   <Input
@@ -113,20 +110,18 @@ export default function Settings() {
                 </div>
               </div>
               <Button onClick={handleSaveCompany}>Sauvegarder</Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Préférences */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Palette className="h-5 w-5 text-primary" />
-                <CardTitle>Préférences</CardTitle>
-              </div>
-              <CardDescription>Personnalisez votre expérience</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
+          <div className="section-card">
+            <div className="flex items-center gap-2 mb-4">
+              <Palette className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Préférences</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">Personnalisez votre expérience</p>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between max-w-md">
                 <div className="space-y-0.5">
                   <Label>Notifications par email</Label>
                   <p className="text-sm text-muted-foreground">
@@ -138,8 +133,8 @@ export default function Settings() {
                   onCheckedChange={setEmailNotifications}
                 />
               </div>
-              <Separator />
-              <div className="flex items-center justify-between">
+              <Separator className="max-w-md" />
+              <div className="flex items-center justify-between max-w-md">
                 <div className="space-y-0.5">
                   <Label>Mode sombre</Label>
                   <p className="text-sm text-muted-foreground">
@@ -152,8 +147,8 @@ export default function Settings() {
                 />
               </div>
               <Button onClick={handleSavePreferences}>Sauvegarder</Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </AppLayout>
