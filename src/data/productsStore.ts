@@ -102,6 +102,22 @@ export function subscribeProducts(listener: Listener): () => void {
   return () => listeners.delete(listener);
 }
 
+export async function deleteProduct(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Erreur suppression produit:', error);
+    return false;
+  }
+
+  cachedProducts = cachedProducts.filter((p) => p.id !== id);
+  notify();
+  return true;
+}
+
 // Fonction pour créer un produit à partir d'un devis (si nouveau)
 export async function ensureProductFromDevis(devis: {
   produit: { reference: string; designation: string; quantite: number; variantes?: string };

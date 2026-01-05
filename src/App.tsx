@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import DevisForm from "./pages/DevisForm";
 import DevisSummary from "./pages/DevisSummary";
 import Clients from "./pages/Clients";
+import Products from "./pages/Products";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "@/contexts/auth";
 import { RequireAuth } from "@/components/auth/RequireAuth";
@@ -41,6 +42,14 @@ const App = () => (
               element={
                 <RequireAuth>
                   <Clients />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/products"
+              element={
+                <RequireAuth>
+                  <Products />
                 </RequireAuth>
               }
             />

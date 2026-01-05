@@ -1,10 +1,11 @@
-import { FileText, Home, Settings, Users, LogOut } from 'lucide-react';
+import { FileText, Settings, Users, LogOut, Package } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import majiLogo from '@/assets/maji-logo.png';
 import { useAuth } from '@/contexts/auth';
 
 const navigation = [
   { name: 'Devis', href: '/dashboard', icon: FileText },
+  { name: 'Produits', href: '/products', icon: Package },
   { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Paramètres', href: '/settings', icon: Settings },
 ];
