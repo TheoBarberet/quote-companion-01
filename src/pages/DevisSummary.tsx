@@ -16,6 +16,9 @@ import {
   Edit,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function DevisSummary() {
   const { id } = useParams();
@@ -45,10 +48,212 @@ export default function DevisSummary() {
     }).format(amount);
   };
 
-  const handleExport = (format: 'pdf' | 'excel') => {
+  const handleExportExcel = () => {
+    if (!devis) return;
+
+    const wb = XLSX.utils.book_new();
+
+    // Feuille Résumé
+    const summaryData = [
+      ['DEVIS', devis.reference],
+      ['Date', new Date(devis.dateCreation).toLocaleDateString('fr-FR')],
+      [''],
+      ['CLIENT'],
+      ['Nom', devis.client.nom],
+      ['Référence', devis.client.reference],
+      ['Adresse', devis.client.adresse],
+      [''],
+      ['PRODUIT'],
+      ['Référence', devis.produit.reference],
+      ['Désignation', devis.produit.designation],
+      ['Quantité', devis.produit.quantite],
+      [''],
+      ['SYNTHÈSE FINANCIÈRE'],
+      ['Coût de revient', devis.coutRevient],
+      ['Prix de vente', devis.prixVente],
+      ['Marge cible', `${devis.marges.margeCible}%`],
+      ['Marge réelle', `${devis.margeReelle.toFixed(1)}%`],
+      ['Bénéfice', devis.prixVente - devis.coutRevient],
+    ];
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Résumé');
+
+    // Feuille Composants
+    if (devis.composants.length > 0) {
+      const composantsData = [
+        ['Référence', 'Désignation', 'Fournisseur', 'Prix unitaire', 'Quantité', 'Total'],
+        ...devis.composants.map((c) => [
+          c.reference,
+          c.designation,
+          c.fournisseur,
+          c.prixUnitaire,
+          c.quantite,
+          c.prixUnitaire * c.quantite,
+        ]),
+      ];
+      const wsComposants = XLSX.utils.aoa_to_sheet(composantsData);
+      XLSX.utils.book_append_sheet(wb, wsComposants, 'Composants');
+    }
+
+    // Feuille Matières premières
+    if (devis.matieresPremières.length > 0) {
+      const matieresData = [
+        ['Type', 'Prix/kg', 'Quantité (kg)', 'Total'],
+        ...devis.matieresPremières.map((m) => [
+          m.type,
+          m.prixKg,
+          m.quantiteKg,
+          m.prixKg * m.quantiteKg,
+        ]),
+      ];
+      const wsMatieres = XLSX.utils.aoa_to_sheet(matieresData);
+      XLSX.utils.book_append_sheet(wb, wsMatieres, 'Matières premières');
+    }
+
+    // Feuille Production
+    if (devis.etapesProduction.length > 0) {
+      const productionData = [
+        ['Opération', 'Durée (h)', 'Taux horaire', 'Total'],
+        ...devis.etapesProduction.map((e) => [
+          e.operation,
+          e.dureeHeures,
+          e.tauxHoraire,
+          e.dureeHeures * e.tauxHoraire,
+        ]),
+      ];
+      const wsProduction = XLSX.utils.aoa_to_sheet(productionData);
+      XLSX.utils.book_append_sheet(wb, wsProduction, 'Production');
+    }
+
+    XLSX.writeFile(wb, `${devis.reference}.xlsx`);
+
     toast({
-      title: `Export ${format.toUpperCase()}`,
-      description: 'Le fichier a été généré avec succès',
+      title: 'Export Excel',
+      description: 'Le fichier a été téléchargé avec succès',
+    });
+  };
+
+  const handleExportPDF = () => {
+    if (!devis) return;
+
+    const doc = new jsPDF();
+    let y = 20;
+
+    // Titre
+    doc.setFontSize(18);
+    doc.text(`Devis ${devis.reference}`, 14, y);
+    y += 10;
+
+    doc.setFontSize(10);
+    doc.text(`Date: ${new Date(devis.dateCreation).toLocaleDateString('fr-FR')}`, 14, y);
+    y += 15;
+
+    // Client
+    doc.setFontSize(12);
+    doc.text('Client', 14, y);
+    y += 6;
+    doc.setFontSize(10);
+    doc.text(`${devis.client.nom} (${devis.client.reference})`, 14, y);
+    y += 5;
+    doc.text(devis.client.adresse, 14, y);
+    y += 10;
+
+    // Produit
+    doc.setFontSize(12);
+    doc.text('Produit', 14, y);
+    y += 6;
+    doc.setFontSize(10);
+    doc.text(`${devis.produit.designation} (${devis.produit.reference}) - Qté: ${devis.produit.quantite}`, 14, y);
+    y += 15;
+
+    // Composants
+    if (devis.composants.length > 0) {
+      doc.setFontSize(12);
+      doc.text('Composants', 14, y);
+      y += 4;
+      autoTable(doc, {
+        startY: y,
+        head: [['Réf.', 'Désignation', 'Fournisseur', 'Prix unit.', 'Qté', 'Total']],
+        body: devis.composants.map((c) => [
+          c.reference,
+          c.designation,
+          c.fournisseur,
+          `${c.prixUnitaire.toFixed(2)} €`,
+          c.quantite,
+          `${(c.prixUnitaire * c.quantite).toFixed(2)} €`,
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [100, 100, 100] },
+      });
+      y = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // Matières premières
+    if (devis.matieresPremières.length > 0) {
+      doc.setFontSize(12);
+      doc.text('Matières premières', 14, y);
+      y += 4;
+      autoTable(doc, {
+        startY: y,
+        head: [['Type', 'Prix/kg', 'Qté (kg)', 'Total']],
+        body: devis.matieresPremières.map((m) => [
+          m.type,
+          `${m.prixKg.toFixed(2)} €`,
+          m.quantiteKg,
+          `${(m.prixKg * m.quantiteKg).toFixed(2)} €`,
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [100, 100, 100] },
+      });
+      y = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // Production
+    if (devis.etapesProduction.length > 0) {
+      doc.setFontSize(12);
+      doc.text('Production', 14, y);
+      y += 4;
+      autoTable(doc, {
+        startY: y,
+        head: [['Opération', 'Durée (h)', 'Taux horaire', 'Total']],
+        body: devis.etapesProduction.map((e) => [
+          e.operation,
+          e.dureeHeures,
+          `${e.tauxHoraire.toFixed(2)} €`,
+          `${(e.dureeHeures * e.tauxHoraire).toFixed(2)} €`,
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [100, 100, 100] },
+      });
+      y = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // Transport
+    doc.setFontSize(12);
+    doc.text('Transport', 14, y);
+    y += 6;
+    doc.setFontSize(10);
+    doc.text(`Mode: ${devis.transport.mode} | Distance: ${devis.transport.distance} km | Coût: ${devis.transport.cout.toFixed(2)} €`, 14, y);
+    y += 15;
+
+    // Synthèse financière
+    doc.setFontSize(12);
+    doc.text('Synthèse financière', 14, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.text(`Coût de revient: ${devis.coutRevient.toFixed(2)} €`, 14, y);
+    y += 5;
+    doc.text(`Prix de vente: ${devis.prixVente.toFixed(2)} €`, 14, y);
+    y += 5;
+    doc.text(`Marge: ${devis.margeReelle.toFixed(1)}% (cible: ${devis.marges.margeCible}%)`, 14, y);
+    y += 5;
+    doc.text(`Bénéfice: ${(devis.prixVente - devis.coutRevient).toFixed(2)} €`, 14, y);
+
+    doc.save(`${devis.reference}.pdf`);
+
+    toast({
+      title: 'Export PDF',
+      description: 'Le fichier a été téléchargé avec succès',
     });
   };
 
@@ -168,11 +373,11 @@ export default function DevisSummary() {
             <Edit className="w-4 h-4 mr-2" />
             Modifier
           </Button>
-          <Button variant="outline" onClick={() => handleExport('excel')}>
+          <Button variant="outline" onClick={handleExportExcel}>
             <Download className="w-4 h-4 mr-2" />
             Excel
           </Button>
-          <Button variant="outline" onClick={() => handleExport('pdf')}>
+          <Button variant="outline" onClick={handleExportPDF}>
             <FileText className="w-4 h-4 mr-2" />
             PDF
           </Button>
