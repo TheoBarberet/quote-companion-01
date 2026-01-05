@@ -135,12 +135,9 @@ export function calculateTransportCost(
     }
   }
 
-  // Fallback: if no exact match, find closest match by mode
-  if (!bestTarif && modeTarifs.length > 0) {
-    // Find one that at least matches volume
-    bestTarif = modeTarifs.find(t => volume <= t.volumeMax) || modeTarifs[0];
-  }
-
+  // IMPORTANT: pas de fallback permissif.
+  // Si aucun tarif ne correspond à la distance ET au volume, on retourne null.
+  if (!bestTarif) return null;
   if (!bestTarif) return null;
 
   // Simple calculation: always distance * cost per km

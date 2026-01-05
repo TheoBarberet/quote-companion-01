@@ -64,7 +64,7 @@ export default function DevisForm() {
 
   const [loadingAI, setLoadingAI] = useState<{ type: 'component' | 'material'; index: number } | null>(null);
   const [calculatingTransport, setCalculatingTransport] = useState(false);
-
+  const showItemAISearch = false; // temporairement désactivé (non fonctionnel)
   useEffect(() => {
     if (isEditing && id) {
       getDevisById(id).then((devis) => {
@@ -470,19 +470,21 @@ export default function DevisForm() {
                           />
                         </div>
                         <div className="flex gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => searchComponentPrice(idx)}
-                            disabled={loadingAI?.type === 'component' && loadingAI.index === idx}
-                            title="Rechercher le prix via IA"
-                          >
-                            {loadingAI?.type === 'component' && loadingAI.index === idx ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                            ) : (
-                              <Sparkles className="w-4 h-4 text-primary" />
-                            )}
-                          </Button>
+                          {showItemAISearch && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => searchComponentPrice(idx)}
+                              disabled={loadingAI?.type === 'component' && loadingAI.index === idx}
+                              title="Rechercher le prix via IA"
+                            >
+                              {loadingAI?.type === 'component' && loadingAI.index === idx ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                              ) : (
+                                <Sparkles className="w-4 h-4 text-primary" />
+                              )}
+                            </Button>
+                          )}
                           <Button variant="ghost" size="sm" onClick={() => removeItem('composants', comp.id)}>
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
@@ -572,19 +574,21 @@ export default function DevisForm() {
                           />
                         </div>
                         <div className="flex gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => searchMaterialPrice(idx)}
-                            disabled={loadingAI?.type === 'material' && loadingAI.index === idx}
-                            title="Rechercher le prix via IA"
-                          >
-                            {loadingAI?.type === 'material' && loadingAI.index === idx ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                            ) : (
-                              <Sparkles className="w-4 h-4 text-primary" />
-                            )}
-                          </Button>
+                          {showItemAISearch && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => searchMaterialPrice(idx)}
+                              disabled={loadingAI?.type === 'material' && loadingAI.index === idx}
+                              title="Rechercher le prix via IA"
+                            >
+                              {loadingAI?.type === 'material' && loadingAI.index === idx ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                              ) : (
+                                <Sparkles className="w-4 h-4 text-primary" />
+                              )}
+                            </Button>
+                          )}
                           <Button variant="ghost" size="sm" onClick={() => removeItem('matieresPremières', mat.id)}>
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
