@@ -53,8 +53,11 @@ export default function DevisSummary() {
 
     const wb = XLSX.utils.book_new();
 
-    // Feuille Résumé
-    const summaryData = [
+    // Prix unitaire pour le client (prix de vente / quantité)
+    const prixUnitaireClient = devis.prixVente / devis.produit.quantite;
+
+    // Feuille Devis (document client simplifié)
+    const devisData = [
       ['DEVIS', devis.reference],
       ['Date', new Date(devis.dateCreation).toLocaleDateString('fr-FR')],
       [''],
@@ -62,68 +65,24 @@ export default function DevisSummary() {
       ['Nom', devis.client.nom],
       ['Référence', devis.client.reference],
       ['Adresse', devis.client.adresse],
+      ['Email', devis.client.email || ''],
+      ['Téléphone', devis.client.telephone || ''],
       [''],
       ['PRODUIT'],
       ['Référence', devis.produit.reference],
       ['Désignation', devis.produit.designation],
       ['Quantité', devis.produit.quantite],
+      ['Prix unitaire HT', `${prixUnitaireClient.toFixed(2)} €`],
       [''],
-      ['SYNTHÈSE FINANCIÈRE'],
-      ['Coût de revient', devis.coutRevient],
-      ['Prix de vente', devis.prixVente],
-      ['Marge cible', `${devis.marges.margeCible}%`],
-      ['Marge réelle', `${devis.margeReelle.toFixed(1)}%`],
-      ['Bénéfice', devis.prixVente - devis.coutRevient],
+      ['TRANSPORT'],
+      ['Mode', devis.transport.mode],
+      ['Distance', `${devis.transport.distance} km`],
+      [''],
+      ['TOTAL'],
+      ['Montant total HT', `${devis.prixVente.toFixed(2)} €`],
     ];
-    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Résumé');
-
-    // Feuille Composants
-    if (devis.composants.length > 0) {
-      const composantsData = [
-        ['Référence', 'Désignation', 'Fournisseur', 'Prix unitaire', 'Quantité', 'Total'],
-        ...devis.composants.map((c) => [
-          c.reference,
-          c.designation,
-          c.fournisseur,
-          c.prixUnitaire,
-          c.quantite,
-          c.prixUnitaire * c.quantite,
-        ]),
-      ];
-      const wsComposants = XLSX.utils.aoa_to_sheet(composantsData);
-      XLSX.utils.book_append_sheet(wb, wsComposants, 'Composants');
-    }
-
-    // Feuille Matières premières
-    if (devis.matieresPremières.length > 0) {
-      const matieresData = [
-        ['Type', 'Prix/kg', 'Quantité (kg)', 'Total'],
-        ...devis.matieresPremières.map((m) => [
-          m.type,
-          m.prixKg,
-          m.quantiteKg,
-          m.prixKg * m.quantiteKg,
-        ]),
-      ];
-      const wsMatieres = XLSX.utils.aoa_to_sheet(matieresData);
-      XLSX.utils.book_append_sheet(wb, wsMatieres, 'Matières premières');
-    }
-
-    // Feuille Production
-    if (devis.etapesProduction.length > 0) {
-      const productionData = [
-        ['Opération', 'Durée (h)', 'Taux horaire', 'Total'],
-        ...devis.etapesProduction.map((e) => [
-          e.operation,
-          e.dureeHeures,
-          e.tauxHoraire,
-          e.dureeHeures * e.tauxHoraire,
-        ]),
-      ];
-      const wsProduction = XLSX.utils.aoa_to_sheet(productionData);
-      XLSX.utils.book_append_sheet(wb, wsProduction, 'Production');
-    }
+    const wsDevis = XLSX.utils.aoa_to_sheet(devisData);
+    XLSX.utils.book_append_sheet(wb, wsDevis, 'Devis');
 
     XLSX.writeFile(wb, `${devis.reference}.xlsx`);
 
@@ -139,115 +98,93 @@ export default function DevisSummary() {
     const doc = new jsPDF();
     let y = 20;
 
+    // Prix unitaire pour le client (prix de vente / quantité)
+    const prixUnitaireClient = devis.prixVente / devis.produit.quantite;
+
     // Titre
-    doc.setFontSize(18);
-    doc.text(`Devis ${devis.reference}`, 14, y);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`DEVIS ${devis.reference}`, 14, y);
     y += 10;
 
     doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
     doc.text(`Date: ${new Date(devis.dateCreation).toLocaleDateString('fr-FR')}`, 14, y);
-    y += 15;
+    y += 20;
 
     // Client
     doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
     doc.text('Client', 14, y);
-    y += 6;
+    y += 7;
     doc.setFontSize(10);
-    doc.text(`${devis.client.nom} (${devis.client.reference})`, 14, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(devis.client.nom, 14, y);
+    y += 5;
+    doc.text(`Réf: ${devis.client.reference}`, 14, y);
     y += 5;
     doc.text(devis.client.adresse, 14, y);
-    y += 10;
-
-    // Produit
-    doc.setFontSize(12);
-    doc.text('Produit', 14, y);
-    y += 6;
-    doc.setFontSize(10);
-    doc.text(`${devis.produit.designation} (${devis.produit.reference}) - Qté: ${devis.produit.quantite}`, 14, y);
+    if (devis.client.email) {
+      y += 5;
+      doc.text(`Email: ${devis.client.email}`, 14, y);
+    }
+    if (devis.client.telephone) {
+      y += 5;
+      doc.text(`Tél: ${devis.client.telephone}`, 14, y);
+    }
     y += 15;
 
-    // Composants
-    if (devis.composants.length > 0) {
-      doc.setFontSize(12);
-      doc.text('Composants', 14, y);
-      y += 4;
-      autoTable(doc, {
-        startY: y,
-        head: [['Réf.', 'Désignation', 'Fournisseur', 'Prix unit.', 'Qté', 'Total']],
-        body: devis.composants.map((c) => [
-          c.reference,
-          c.designation,
-          c.fournisseur,
-          `${c.prixUnitaire.toFixed(2)} €`,
-          c.quantite,
-          `${(c.prixUnitaire * c.quantite).toFixed(2)} €`,
-        ]),
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [100, 100, 100] },
-      });
-      y = (doc as any).lastAutoTable.finalY + 10;
-    }
-
-    // Matières premières
-    if (devis.matieresPremières.length > 0) {
-      doc.setFontSize(12);
-      doc.text('Matières premières', 14, y);
-      y += 4;
-      autoTable(doc, {
-        startY: y,
-        head: [['Type', 'Prix/kg', 'Qté (kg)', 'Total']],
-        body: devis.matieresPremières.map((m) => [
-          m.type,
-          `${m.prixKg.toFixed(2)} €`,
-          m.quantiteKg,
-          `${(m.prixKg * m.quantiteKg).toFixed(2)} €`,
-        ]),
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [100, 100, 100] },
-      });
-      y = (doc as any).lastAutoTable.finalY + 10;
-    }
-
-    // Production
-    if (devis.etapesProduction.length > 0) {
-      doc.setFontSize(12);
-      doc.text('Production', 14, y);
-      y += 4;
-      autoTable(doc, {
-        startY: y,
-        head: [['Opération', 'Durée (h)', 'Taux horaire', 'Total']],
-        body: devis.etapesProduction.map((e) => [
-          e.operation,
-          e.dureeHeures,
-          `${e.tauxHoraire.toFixed(2)} €`,
-          `${(e.dureeHeures * e.tauxHoraire).toFixed(2)} €`,
-        ]),
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [100, 100, 100] },
-      });
-      y = (doc as any).lastAutoTable.finalY + 10;
-    }
+    // Produit commandé
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Produit commandé', 14, y);
+    y += 4;
+    autoTable(doc, {
+      startY: y,
+      head: [['Référence', 'Désignation', 'Quantité', 'Prix unitaire HT', 'Total HT']],
+      body: [[
+        devis.produit.reference,
+        devis.produit.designation,
+        devis.produit.quantite,
+        `${prixUnitaireClient.toFixed(2)} €`,
+        `${devis.prixVente.toFixed(2)} €`,
+      ]],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [60, 60, 60] },
+    });
+    y = (doc as any).lastAutoTable.finalY + 15;
 
     // Transport
     doc.setFontSize(12);
-    doc.text('Transport', 14, y);
-    y += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Livraison', 14, y);
+    y += 7;
     doc.setFontSize(10);
-    doc.text(`Mode: ${devis.transport.mode} | Distance: ${devis.transport.distance} km | Coût: ${devis.transport.cout.toFixed(2)} €`, 14, y);
-    y += 15;
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Mode de transport: ${devis.transport.mode}`, 14, y);
+    y += 5;
+    doc.text(`Distance: ${devis.transport.distance} km`, 14, y);
+    y += 20;
 
-    // Synthèse financière
-    doc.setFontSize(12);
-    doc.text('Synthèse financière', 14, y);
-    y += 8;
-    doc.setFontSize(10);
-    doc.text(`Coût de revient: ${devis.coutRevient.toFixed(2)} €`, 14, y);
-    y += 5;
-    doc.text(`Prix de vente: ${devis.prixVente.toFixed(2)} €`, 14, y);
-    y += 5;
-    doc.text(`Marge: ${devis.margeReelle.toFixed(1)}% (cible: ${devis.marges.margeCible}%)`, 14, y);
-    y += 5;
-    doc.text(`Bénéfice: ${(devis.prixVente - devis.coutRevient).toFixed(2)} €`, 14, y);
+    // Total
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, y - 5, 180, 20, 'F');
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL HT', 14, y + 5);
+    doc.text(`${devis.prixVente.toFixed(2)} €`, 180, y + 5, { align: 'right' });
+    y += 25;
+
+    // Notes
+    if (devis.notes) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Notes:', 14, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      const notesLines = doc.splitTextToSize(devis.notes, 180);
+      doc.text(notesLines, 14, y);
+    }
 
     doc.save(`${devis.reference}.pdf`);
 
