@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { Devis } from '@/types/devis';
 import { addDevis, getDevisById, updateDevis } from '@/data/devisStore';
 import { ensureProductTemplateFromDevis } from '@/data/productsStore';
+import { addClient } from '@/data/clientsStore';
 import {
   ArrowLeft,
   Save,
@@ -82,13 +83,28 @@ export default function DevisForm() {
     const margeReelle =
       prixVente > 0 ? ((prixVente - coutRevient) / prixVente) * 100 : 0;
 
-    const clientId = formData.client.id || crypto.randomUUID();
+    // Si nouveau client (pas d'id existant), le créer en BDD
+    let clientId = formData.client.id;
+    let clientReference = formData.client.reference;
+    if (!clientId && formData.client.nom) {
+      const newClient = await addClient({
+        nom: formData.client.nom,
+        adresse: formData.client.adresse || '',
+        email: formData.client.email || undefined,
+        telephone: formData.client.telephone || undefined,
+      });
+      if (newClient) {
+        clientId = newClient.id;
+        clientReference = newClient.reference;
+      }
+    }
+
     const produitId = formData.produit.id || crypto.randomUUID();
 
     const payload = {
       status: existingDevis?.status ?? ('pending' as const),
       creePar: existingDevis?.creePar ?? 'Utilisateur',
-      client: { ...formData.client, id: clientId },
+      client: { ...formData.client, id: clientId || '', reference: clientReference || '' },
       produit: {
         ...formData.produit,
         id: produitId,
