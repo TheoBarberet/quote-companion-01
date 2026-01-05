@@ -22,13 +22,13 @@ import {
 import { Label } from '@/components/ui/label';
 import { Plus, Search, Eye, Pencil, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getClients, addClient, updateClient, subscribe, type Client } from '@/data/clientsStore';
+import { addClient, updateClient, subscribeClients, type Client } from '@/data/clientsStore';
 
 export default function Clients() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [clients, setClients] = useState<Client[]>(getClients);
+  const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -43,9 +43,7 @@ export default function Clients() {
 
   // S'abonner aux changements du store
   useEffect(() => {
-    const unsubscribe = subscribe(() => {
-      setClients(getClients());
-    });
+    const unsubscribe = subscribeClients(setClients);
     return unsubscribe;
   }, []);
 
@@ -65,9 +63,9 @@ export default function Clients() {
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (editForm) {
-      updateClient(editForm.id, {
+      await updateClient(editForm.id, {
         nom: editForm.nom,
         adresse: editForm.adresse,
         email: editForm.email,
@@ -81,7 +79,7 @@ export default function Clients() {
     setIsEditDialogOpen(false);
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!createForm.nom.trim()) {
       toast({
         title: "Erreur",
@@ -91,7 +89,7 @@ export default function Clients() {
       return;
     }
     
-    addClient({
+    await addClient({
       nom: createForm.nom.trim(),
       adresse: createForm.adresse.trim(),
       email: createForm.email.trim() || undefined,

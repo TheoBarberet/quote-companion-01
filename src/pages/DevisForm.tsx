@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -42,26 +42,42 @@ export default function DevisForm() {
   // Récupère un brouillon depuis la page synthèse (/devis/new/summary)
   const draftDevis = location.state?.draftDevis as Devis | undefined;
 
-  const existingDevis = isEditing && id ? getDevisById(id) : null;
-  const initialDevis = draftDevis ?? existingDevis;
+  const [existingDevis, setExistingDevis] = useState<Devis | null>(null);
+  const [loading, setLoading] = useState(isEditing);
 
   const [formData, setFormData] = useState({
-    client:
-      prefilledClient ||
-      initialDevis?.client ||
-      ({ id: '', reference: '', nom: '', adresse: '', email: '', telephone: '' } as any),
-    produit:
-      initialDevis?.produit ||
-      ({ id: '', reference: '', designation: '', quantite: 0, variantes: '' } as any),
-    composants: initialDevis?.composants || [],
-    matieresPremières: initialDevis?.matieresPremières || [],
-    etapesProduction: initialDevis?.etapesProduction || [],
-    transport: initialDevis?.transport || { mode: 'Routier', distance: 0, volume: 0, cout: 0 },
-    marges: initialDevis?.marges || { margeCible: 25, prixVenteSouhaite: 0 },
-    notes: initialDevis?.notes || '',
+    client: prefilledClient || draftDevis?.client || { id: '', reference: '', nom: '', adresse: '', email: '', telephone: '' },
+    produit: draftDevis?.produit || { id: '', reference: '', designation: '', quantite: 0, variantes: '' },
+    composants: draftDevis?.composants || [],
+    matieresPremières: draftDevis?.matieresPremières || [],
+    etapesProduction: draftDevis?.etapesProduction || [],
+    transport: draftDevis?.transport || { mode: 'Routier', distance: 0, volume: 0, cout: 0 },
+    marges: draftDevis?.marges || { margeCible: 25, prixVenteSouhaite: 0 },
+    notes: draftDevis?.notes || '',
   });
 
-  const handleSave = (coutRevient: number) => {
+  useEffect(() => {
+    if (isEditing && id) {
+      getDevisById(id).then((devis) => {
+        if (devis) {
+          setExistingDevis(devis);
+          setFormData({
+            client: devis.client,
+            produit: devis.produit,
+            composants: devis.composants,
+            matieresPremières: devis.matieresPremières,
+            etapesProduction: devis.etapesProduction,
+            transport: devis.transport,
+            marges: devis.marges,
+            notes: devis.notes || '',
+          });
+        }
+        setLoading(false);
+      });
+    }
+  }, [id, isEditing]);
+
+  const handleSave = async (coutRevient: number) => {
     const prixVente = formData.marges.prixVenteSouhaite || 0;
     const margeReelle =
       prixVente > 0 ? ((prixVente - coutRevient) / prixVente) * 100 : 0;
@@ -70,7 +86,7 @@ export default function DevisForm() {
     const produitId = formData.produit.id || crypto.randomUUID();
 
     const payload = {
-      status: existingDevis?.status ?? 'pending',
+      status: existingDevis?.status ?? ('pending' as const),
       creePar: existingDevis?.creePar ?? 'Utilisateur',
       client: { ...formData.client, id: clientId },
       produit: {
@@ -97,9 +113,9 @@ export default function DevisForm() {
     });
 
     if (existingDevis) {
-      updateDevis(existingDevis.id, payload);
+      await updateDevis(existingDevis.id, payload);
     } else {
-      addDevis(payload);
+      await addDevis(payload);
     }
 
     toast({
@@ -133,10 +149,10 @@ export default function DevisForm() {
     }));
   };
 
-  const removeItem = (type: 'composants' | 'matieresPremières' | 'etapesProduction', id: string) => {
+  const removeItem = (type: 'composants' | 'matieresPremières' | 'etapesProduction', itemId: string) => {
     setFormData(prev => ({
       ...prev,
-      [type]: prev[type].filter((item: any) => item.id !== id)
+      [type]: prev[type].filter((item: { id: string }) => item.id !== itemId)
     }));
   };
 
@@ -145,6 +161,16 @@ export default function DevisForm() {
   const totalMatieres = formData.matieresPremières.reduce((sum, m) => sum + (m.prixKg * m.quantiteKg), 0);
   const totalProduction = formData.etapesProduction.reduce((sum, e) => sum + (e.dureeHeures * e.tauxHoraire), 0);
   const coutRevient = totalComposants + totalMatieres + totalProduction + formData.transport.cout;
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="p-8 animate-fade-in">
+          <p className="text-muted-foreground">Chargement...</p>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -214,7 +240,6 @@ export default function DevisForm() {
                   setFormData(prev => ({
                     ...prev,
                     produit: { ...prev.produit, ...data.produit },
-                    // Ne remplace les données que si on sélectionne un produit existant (arrays non vides)
                     ...(data.composants.length > 0 && { composants: data.composants }),
                     ...(data.matieresPremières.length > 0 && { matieresPremières: data.matieresPremières }),
                     ...(data.etapesProduction.length > 0 && { etapesProduction: data.etapesProduction })

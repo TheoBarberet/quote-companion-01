@@ -14,6 +14,159 @@ export type Database = {
   }
   public: {
     Tables: {
+      clients: {
+        Row: {
+          adresse: string
+          created_at: string
+          email: string | null
+          id: string
+          nom: string
+          reference: string
+          telephone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          adresse: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          nom: string
+          reference: string
+          telephone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          adresse?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          nom?: string
+          reference?: string
+          telephone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      devis: {
+        Row: {
+          client_adresse: string | null
+          client_email: string | null
+          client_nom: string | null
+          client_reference: string | null
+          client_telephone: string | null
+          composants: Json | null
+          cout_revient: number | null
+          created_at: string
+          date_creation: string
+          date_modification: string
+          etapes_production: Json | null
+          id: string
+          marge_cible: number | null
+          marge_reelle: number | null
+          matieres_premieres: Json | null
+          notes: string | null
+          prix_vente: number | null
+          produit: Json | null
+          reference: string
+          status: string
+          transport: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_adresse?: string | null
+          client_email?: string | null
+          client_nom?: string | null
+          client_reference?: string | null
+          client_telephone?: string | null
+          composants?: Json | null
+          cout_revient?: number | null
+          created_at?: string
+          date_creation?: string
+          date_modification?: string
+          etapes_production?: Json | null
+          id?: string
+          marge_cible?: number | null
+          marge_reelle?: number | null
+          matieres_premieres?: Json | null
+          notes?: string | null
+          prix_vente?: number | null
+          produit?: Json | null
+          reference: string
+          status?: string
+          transport?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_adresse?: string | null
+          client_email?: string | null
+          client_nom?: string | null
+          client_reference?: string | null
+          client_telephone?: string | null
+          composants?: Json | null
+          cout_revient?: number | null
+          created_at?: string
+          date_creation?: string
+          date_modification?: string
+          etapes_production?: Json | null
+          id?: string
+          marge_cible?: number | null
+          marge_reelle?: number | null
+          matieres_premieres?: Json | null
+          notes?: string | null
+          prix_vente?: number | null
+          produit?: Json | null
+          reference?: string
+          status?: string
+          transport?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          composants: Json | null
+          created_at: string
+          designation: string
+          etapes_production: Json | null
+          id: string
+          matieres_premieres: Json | null
+          reference: string
+          updated_at: string
+          user_id: string
+          variantes: string | null
+        }
+        Insert: {
+          composants?: Json | null
+          created_at?: string
+          designation: string
+          etapes_production?: Json | null
+          id?: string
+          matieres_premieres?: Json | null
+          reference: string
+          updated_at?: string
+          user_id: string
+          variantes?: string | null
+        }
+        Update: {
+          composants?: Json | null
+          created_at?: string
+          designation?: string
+          etapes_production?: Json | null
+          id?: string
+          matieres_premieres?: Json | null
+          reference?: string
+          updated_at?: string
+          user_id?: string
+          variantes?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
