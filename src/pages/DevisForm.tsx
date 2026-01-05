@@ -376,13 +376,17 @@ export default function DevisForm() {
               </div>
               <ProductSelector
                 selectedProduct={formData.produit}
+                initialComposants={isEditing ? formData.composants : undefined}
+                initialMatieres={isEditing ? formData.matieresPremières : undefined}
+                initialEtapes={isEditing ? formData.etapesProduction : undefined}
+                initialQuantite={isEditing ? formData.produit.quantite : undefined}
                 onProductChange={(data) => {
                   setFormData(prev => ({
                     ...prev,
                     produit: { ...prev.produit, ...data.produit },
-                    ...(data.composants.length > 0 && { composants: data.composants }),
-                    ...(data.matieresPremières.length > 0 && { matieresPremières: data.matieresPremières }),
-                    ...(data.etapesProduction.length > 0 && { etapesProduction: data.etapesProduction })
+                    composants: data.composants.length > 0 ? data.composants : prev.composants,
+                    matieresPremières: data.matieresPremières.length > 0 ? data.matieresPremières : prev.matieresPremières,
+                    etapesProduction: data.etapesProduction.length > 0 ? data.etapesProduction : prev.etapesProduction
                   }));
                 }}
               />

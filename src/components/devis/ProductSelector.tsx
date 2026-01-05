@@ -17,6 +17,10 @@ import { Sparkles, Loader2 } from 'lucide-react';
 
 interface ProductSelectorProps {
   selectedProduct: { reference: string; designation: string; quantite: number; variantes?: string };
+  initialComposants?: Composant[];
+  initialMatieres?: MatierePremiere[];
+  initialEtapes?: EtapeProduction[];
+  initialQuantite?: number;
   onProductChange: (data: {
     produit: { reference: string; designation: string; quantite: number; variantes?: string };
     composants: Composant[];
@@ -32,9 +36,17 @@ interface BaseProductData {
   etapesProduction: Omit<EtapeProduction, 'id'>[];
 }
 
-export function ProductSelector({ selectedProduct, onProductChange }: ProductSelectorProps) {
+export function ProductSelector({ 
+  selectedProduct, 
+  initialComposants,
+  initialMatieres,
+  initialEtapes,
+  initialQuantite,
+  onProductChange 
+}: ProductSelectorProps) {
   const [isNewProduct, setIsNewProduct] = useState(!selectedProduct.reference);
   const [baseData, setBaseData] = useState<BaseProductData | null>(null);
+  const [baseDataInitialized, setBaseDataInitialized] = useState(false);
   const [products, setProducts] = useState<ProductTemplate[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const { toast } = useToast();
@@ -46,6 +58,30 @@ export function ProductSelector({ selectedProduct, onProductChange }: ProductSel
     });
     return unsubscribe;
   }, []);
+
+  // Initialize baseData for editing mode
+  useEffect(() => {
+    if (
+      !baseDataInitialized &&
+      initialComposants && 
+      initialMatieres && 
+      initialEtapes && 
+      initialQuantite && 
+      initialQuantite > 0
+    ) {
+      const baseQuantity = initialQuantite;
+      setBaseData({
+        quantiteOriginale: baseQuantity,
+        composants: initialComposants.map(({ id, ...rest }) => rest),
+        matieresPremières: initialMatieres.map(({ id, ...rest }) => rest),
+        etapesProduction: initialEtapes.map(({ id, ...rest }) => rest),
+      });
+      setBaseDataInitialized(true);
+      if (selectedProduct.reference) {
+        setIsNewProduct(false);
+      }
+    }
+  }, [initialComposants, initialMatieres, initialEtapes, initialQuantite, baseDataInitialized, selectedProduct.reference]);
 
   const scaleDataByQuantity = (base: BaseProductData, newQuantity: number) => {
     const ratio = newQuantity / base.quantiteOriginale;
