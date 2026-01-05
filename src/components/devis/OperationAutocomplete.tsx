@@ -14,13 +14,15 @@ interface OperationAutocompleteProps {
   tauxHoraire: number;
   onChange: (operation: string, tauxHoraire: number) => void;
   className?: string;
+  hasError?: boolean;
 }
 
 export function OperationAutocomplete({ 
   value, 
   tauxHoraire,
   onChange, 
-  className 
+  className,
+  hasError = false
 }: OperationAutocompleteProps) {
   const [query, setQuery] = useState(value);
   const [suggestions, setSuggestions] = useState<EtapeCatalogue[]>([]);
@@ -169,8 +171,9 @@ export function OperationAutocomplete({
         onFocus={() => setIsOpen(true)}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className={cn("h-9", className)}
+        className={cn("h-9", hasError && "border-destructive ring-1 ring-destructive", className)}
         placeholder="Rechercher ou créer une opération..."
+        data-error={hasError}
       />
       
       {isOpen && suggestions.length > 0 && (

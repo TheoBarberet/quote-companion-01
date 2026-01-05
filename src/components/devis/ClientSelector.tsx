@@ -28,12 +28,17 @@ interface ClientSelectorProps {
     telephone?: string;
   };
   onClientChange: (client: Client | { reference: string; nom: string; adresse: string; email?: string; telephone?: string }) => void;
+  fieldErrors?: Set<string>;
 }
 
-export function ClientSelector({ selectedClient, onClientChange }: ClientSelectorProps) {
+export function ClientSelector({ selectedClient, onClientChange, fieldErrors = new Set() }: ClientSelectorProps) {
   const [open, setOpen] = useState(false);
   const [isNewClient, setIsNewClient] = useState(!selectedClient.reference);
   const [clients, setClients] = useState<Client[]>([]);
+
+  const getErrorClass = (fieldName: string) => {
+    return fieldErrors.has(fieldName) ? 'border-destructive ring-1 ring-destructive' : '';
+  };
 
   // S'abonner aux changements du store
   useEffect(() => {
@@ -131,6 +136,8 @@ export function ClientSelector({ selectedClient, onClientChange }: ClientSelecto
             onChange={(e) => onClientChange({ ...selectedClient, nom: e.target.value })}
             placeholder="Entreprise SAS"
             disabled={!isNewClient && !!selectedClient.nom}
+            className={getErrorClass('client.nom')}
+            data-error={fieldErrors.has('client.nom')}
           />
         </div>
         <div className="space-y-2">
