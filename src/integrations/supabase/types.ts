@@ -131,6 +131,27 @@ export type Database = {
         }
         Relationships: []
       }
+      etapes_production_catalogue: {
+        Row: {
+          created_at: string
+          id: string
+          operation: string
+          taux_horaire: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          operation: string
+          taux_horaire?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          operation?: string
+          taux_horaire?: number
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           composants: Json | null
