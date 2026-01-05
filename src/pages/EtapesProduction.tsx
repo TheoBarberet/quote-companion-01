@@ -116,65 +116,58 @@ export default function EtapesProduction() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="p-8 animate-fade-in">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Étapes de production</h1>
-            <p className="text-muted-foreground">Catalogue des opérations et taux horaires</p>
+            <h1 className="text-2xl font-bold text-foreground">Étapes de production</h1>
+            <p className="text-muted-foreground mt-1">Catalogue des opérations et taux horaires</p>
           </div>
         </div>
 
         {/* Add new step */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex gap-4 items-end">
-              <div className="flex-1">
-                <label className="text-sm font-medium mb-1 block">Nouvelle opération</label>
-                <Input
-                  placeholder="Nom de l'opération"
-                  value={newOperation}
-                  onChange={(e) => setNewOperation(e.target.value)}
-                />
-              </div>
-              <div className="w-40">
-                <label className="text-sm font-medium mb-1 block">Taux horaire (€)</label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={newTauxHoraire}
-                  onChange={(e) => setNewTauxHoraire(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleAddEtape} className="bg-primary hover:bg-primary/90">
-                <Plus className="w-4 h-4 mr-2" />
-                Ajouter
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Search */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="section-card mb-6">
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <label className="text-sm font-medium text-foreground mb-1 block">Nouvelle opération</label>
               <Input
-                placeholder="Rechercher une opération..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                placeholder="Nom de l'opération"
+                value={newOperation}
+                onChange={(e) => setNewOperation(e.target.value)}
               />
             </div>
-          </CardContent>
-        </Card>
+            <div className="w-40">
+              <label className="text-sm font-medium text-foreground mb-1 block">Taux horaire (€)</label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={newTauxHoraire}
+                onChange={(e) => setNewTauxHoraire(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleAddEtape}>
+              <Plus className="w-4 h-4 mr-2" />
+              Ajouter
+            </Button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="section-card mb-6">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher une opération..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
 
         {/* Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Liste des opérations ({filteredEtapes.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="section-card">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Liste des opérations ({filteredEtapes.length})</h2>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -220,40 +213,39 @@ export default function EtapesProduction() {
               </TableBody>
             </Table>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="mt-4">
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious 
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                      />
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-4">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => handlePageChange(page)}
+                        isActive={currentPage === page}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
                     </PaginationItem>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => handlePageChange(page)}
-                          isActive={currentPage === page}
-                          className="cursor-pointer"
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    ))}
-                    <PaginationItem>
-                      <PaginationNext 
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
+        </div>
       </div>
     </AppLayout>
   );
