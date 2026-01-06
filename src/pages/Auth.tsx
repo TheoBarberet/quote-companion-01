@@ -220,7 +220,7 @@ export default function Auth() {
           </Tabs>
         </section>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">© 2024 Maji Devis - Application interne</p>
+        <p className="text-center text-xs text-muted-foreground mt-6">© 2025 Maji Devis - Application interne</p>
       </div>
     </div>
   );
