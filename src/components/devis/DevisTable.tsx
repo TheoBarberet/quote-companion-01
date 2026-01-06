@@ -61,7 +61,24 @@ export function DevisTable({ devis }: DevisTableProps) {
                   <Button variant="ghost" size="sm" onClick={() => navigate(`/devis/${d.id}/edit`)}>
                     <Edit className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="sm">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => navigate('/devis/new', { 
+                      state: { 
+                        duplicateFrom: {
+                          client: d.client,
+                          produit: d.produit,
+                          composants: d.composants,
+                          matieresPremières: d.matieresPremières,
+                          etapesProduction: d.etapesProduction,
+                          transport: d.transport,
+                          marges: d.marges,
+                          notes: d.notes
+                        }
+                      } 
+                    })}
+                  >
                     <Copy className="w-4 h-4" />
                   </Button>
                 </div>

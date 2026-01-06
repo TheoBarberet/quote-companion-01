@@ -51,19 +51,27 @@ export default function DevisForm() {
   // Récupère un brouillon depuis la page synthèse (/devis/new/summary)
   const draftDevis = location.state?.draftDevis as Devis | undefined;
 
+  // Récupère les données à dupliquer depuis le dashboard
+  const duplicateFrom = location.state?.duplicateFrom;
+
   const [existingDevis, setExistingDevis] = useState<Devis | null>(null);
   const [loading, setLoading] = useState(isEditing);
 
-  const [formData, setFormData] = useState({
-    client: prefilledClient || draftDevis?.client || { id: '', reference: '', nom: '', adresse: '', email: '', telephone: '' },
-    produit: draftDevis?.produit || { id: '', reference: '', designation: '', quantite: 0, variantes: '' },
-    composants: draftDevis?.composants || [] as Composant[],
-    matieresPremières: draftDevis?.matieresPremières || [] as MatierePremiere[],
-    etapesProduction: draftDevis?.etapesProduction || [],
-    transport: draftDevis?.transport || { mode: 'Routier', distance: 0, volume: 0, cout: 0, info: undefined },
-    marges: draftDevis?.marges || { margeCible: 25, prixVenteSouhaite: 0 },
-    notes: draftDevis?.notes || '',
-  });
+  const getInitialFormData = () => {
+    const source = duplicateFrom || draftDevis;
+    return {
+      client: prefilledClient || source?.client || { id: '', reference: '', nom: '', adresse: '', email: '', telephone: '' },
+      produit: source?.produit || { id: '', reference: '', designation: '', quantite: 0, variantes: '' },
+      composants: source?.composants || [] as Composant[],
+      matieresPremières: source?.matieresPremières || [] as MatierePremiere[],
+      etapesProduction: source?.etapesProduction || [],
+      transport: source?.transport || { mode: 'Routier', distance: 0, volume: 0, cout: 0, info: undefined },
+      marges: source?.marges || { margeCible: 25, prixVenteSouhaite: 0 },
+      notes: source?.notes || '',
+    };
+  };
+
+  const [formData, setFormData] = useState(getInitialFormData);
 
   const [loadingAI, setLoadingAI] = useState<{ type: 'component' | 'material'; index: number } | null>(null);
   const [calculatingTransport, setCalculatingTransport] = useState(false);
