@@ -1058,13 +1058,29 @@ export default function DevisForm() {
                 </div>
                 <div className="space-y-2">
                   <Label>Prix de vente souhaité (€)</Label>
-                  <Input 
-                    type="number"
-                    value={formData.marges.prixVenteSouhaite}
-                    onChange={(e) => setFormData(prev => ({ ...prev, marges: { ...prev.marges, prixVenteSouhaite: parseFloat(e.target.value) || 0 }}))}
-                    className={getErrorClass('marges.prixVenteSouhaite')}
-                    data-error={fieldErrors.has('marges.prixVenteSouhaite')}
-                  />
+                  <div className="flex gap-2">
+                    <Input 
+                      type="number"
+                      value={formData.marges.prixVenteSouhaite}
+                      onChange={(e) => setFormData(prev => ({ ...prev, marges: { ...prev.marges, prixVenteSouhaite: parseFloat(e.target.value) || 0 }}))}
+                      className={getErrorClass('marges.prixVenteSouhaite')}
+                      data-error={fieldErrors.has('marges.prixVenteSouhaite')}
+                    />
+                    <Button 
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const prixCalcule = coutRevient / (1 - formData.marges.margeCible / 100);
+                        setFormData(prev => ({ ...prev, marges: { ...prev.marges, prixVenteSouhaite: Math.round(prixCalcule * 100) / 100 }}));
+                        toast({ title: 'Prix calculé', description: `${prixCalcule.toFixed(2)} €` });
+                      }}
+                      disabled={coutRevient === 0 || formData.marges.margeCible <= 0 || formData.marges.margeCible >= 100}
+                      title="Calculer le prix de vente à partir du coût de revient et de la marge cible"
+                    >
+                      <Calculator className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
