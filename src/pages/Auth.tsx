@@ -215,11 +215,6 @@ export default function Auth() {
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? 'Création...' : 'Créer mon compte'}
                 </Button>
-
-                <p className="text-xs text-muted-foreground text-center">
-                  Astuce: créez le compte <span className="font-medium">root@root.fr</span> avec le mot de passe
-                  <span className="font-medium"> maji</span> si vous voulez conserver cet utilisateur.
-                </p>
               </form>
             </TabsContent>
           </Tabs>
