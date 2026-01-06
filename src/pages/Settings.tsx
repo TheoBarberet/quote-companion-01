@@ -1,5 +1,4 @@
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -8,23 +7,25 @@ import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Building2, User, Bell, Palette } from 'lucide-react';
+import { Building2, User, Palette } from 'lucide-react';
+import { useTheme } from 'next-themes';
 
 export default function Settings() {
   const { user } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [companyName, setCompanyName] = useState('Maji');
   const [companyAddress, setCompanyAddress] = useState('');
   const [companySiret, setCompanySiret] = useState('');
   const [companyTva, setCompanyTva] = useState('');
   const [emailNotifications, setEmailNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
 
   const handleSaveCompany = () => {
     toast.success('Informations entreprise sauvegardées');
   };
 
-  const handleSavePreferences = () => {
-    toast.success('Préférences sauvegardées');
+  const handleToggleDarkMode = (checked: boolean) => {
+    setTheme(checked ? 'dark' : 'light');
+    toast.success(checked ? 'Mode sombre activé' : 'Mode clair activé');
   };
 
   return (
@@ -142,11 +143,10 @@ export default function Settings() {
                   </p>
                 </div>
                 <Switch
-                  checked={darkMode}
-                  onCheckedChange={setDarkMode}
+                  checked={theme === 'dark'}
+                  onCheckedChange={handleToggleDarkMode}
                 />
               </div>
-              <Button onClick={handleSavePreferences}>Sauvegarder</Button>
             </div>
           </div>
         </div>
