@@ -211,6 +211,24 @@ export default function DevisForm() {
   const totalProductionForValidation = formData.etapesProduction.reduce((sum, e) => sum + (e.dureeHeures * e.tauxHoraire), 0);
   const coutRevient = totalComposantsForValidation + totalMatieresForValidation + totalProductionForValidation + formData.transport.cout;
   useEffect(() => {
+    // Si on revient de la synthèse avec des données modifiées, les utiliser
+    if (draftDevis && isEditing) {
+      setExistingDevis(draftDevis);
+      setFormData({
+        client: draftDevis.client,
+        produit: draftDevis.produit,
+        composants: draftDevis.composants,
+        matieresPremières: draftDevis.matieresPremières,
+        etapesProduction: draftDevis.etapesProduction,
+        transport: draftDevis.transport,
+        marges: draftDevis.marges,
+        notes: draftDevis.notes || '',
+      });
+      setLoading(false);
+      return;
+    }
+    
+    // Sinon, charger depuis la base de données
     if (isEditing && id) {
       getDevisById(id).then((devis) => {
         if (devis) {
@@ -229,7 +247,7 @@ export default function DevisForm() {
         setLoading(false);
       });
     }
-  }, [id, isEditing]);
+  }, [id, isEditing, draftDevis]);
 
   // Clear field errors dynamically when data changes
   useEffect(() => {
