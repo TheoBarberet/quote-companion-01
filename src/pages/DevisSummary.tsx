@@ -275,7 +275,10 @@ export default function DevisSummary() {
     );
   }
 
-  const margeOk = devis.margeReelle >= devis.marges.margeCible;
+  // Arrondi à 2 décimales pour éviter les problèmes de précision flottante
+  const margeReelleArrondie = Math.round(devis.margeReelle * 100) / 100;
+  const margeCibleArrondie = Math.round(devis.marges.margeCible * 100) / 100;
+  const margeOk = margeReelleArrondie >= margeCibleArrondie;
 
   return (
     <AppLayout>
