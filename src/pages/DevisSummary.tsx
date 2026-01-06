@@ -289,7 +289,7 @@ export default function DevisSummary() {
             size="sm"
             onClick={() =>
               navigate(isDraft ? '/devis/new' : `/devis/${id}/edit`, {
-                state: isDraft ? { draftDevis: devis } : undefined,
+                state: { draftDevis: devis },
               })
             }
           >
@@ -306,7 +306,7 @@ export default function DevisSummary() {
             variant="outline"
             onClick={() =>
               navigate(isDraft ? '/devis/new' : `/devis/${id}/edit`, {
-                state: isDraft ? { draftDevis: devis } : undefined,
+                state: { draftDevis: devis },
               })
             }
           >
